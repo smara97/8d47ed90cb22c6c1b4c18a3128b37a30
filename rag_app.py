@@ -13,18 +13,13 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 
-# --------------------------------------------------------
-# SAFE FILE READER (Fix UTF-8 decode errors)
-# --------------------------------------------------------
+
 def safe_read(path):
     raw = open(path, "rb").read()
     enc = chardet.detect(raw)["encoding"] or "utf-8"
     return raw.decode(enc, errors="ignore")
 
 
-# --------------------------------------------------------
-# MAIN VIDEO-RAG CLASS
-# --------------------------------------------------------
 class AnalyticsRagVideo:
 
     def __init__(
@@ -38,13 +33,10 @@ class AnalyticsRagVideo:
     ):
         self.segments_folder = segments_folder
 
-        # Embeddings
         self.embedder = SentenceTransformer(model_name)
 
-        # Init Qdrant local DB
         self.qdrant = QdrantClient(path=qdrant_path)
 
-        # Create collection with correct API
         if not self.qdrant.collection_exists("video_segments"):
             self.qdrant.create_collection(
                 collection_name="video_segments",
@@ -54,7 +46,6 @@ class AnalyticsRagVideo:
                 )
             )
 
-        # LLM Client
         self.llm = ChatOpenAI(
             base_url=base_url,
             api_key=api_key,
@@ -76,9 +67,7 @@ class AnalyticsRagVideo:
         except:
             pass
 
-    # --------------------------------------------------------
-    # INGEST ALL SEGMENTS
-    # --------------------------------------------------------
+
     def ingest_segments(self):
         txt_files = sorted(glob.glob(os.path.join(self.segments_folder, "segment-*.txt")))
 
@@ -121,9 +110,7 @@ class AnalyticsRagVideo:
         print(f"[Ingest] {len(txt_files)} segments inserted into Qdrant.")
         return f"Indexed {len(txt_files)} segments."
 
-    # --------------------------------------------------------
-    # RETRIEVE SEGMENTS
-    # --------------------------------------------------------
+
     def retrieve(self, query: str, top_k: int = 3):
         vector = self.embedder.encode(query).tolist()
 
@@ -142,9 +129,6 @@ class AnalyticsRagVideo:
             for r in results
         ]
 
-    # --------------------------------------------------------
-    # RAG ANSWER
-    # --------------------------------------------------------
     def rag_answer(self, question: str):
         segs = self.retrieve(question, top_k=3)
 
@@ -177,15 +161,11 @@ Sources:
 
         return answer, video_paths, segs
 
-    # --------------------------------------------------------
-    # BUILD GRADIO UI
-    # --------------------------------------------------------
     def build_gradio(self):
 
         def run_rag(query):
             answer, video_paths, raw_segments = self.rag_answer(query)
 
-            # HTML Videos
             videos_html = ""
             for vp in video_paths:
                 if os.path.exists(vp):
@@ -225,17 +205,12 @@ Sources:
 
         return ui
 
-    # --------------------------------------------------------
-    # LAUNCH UI
-    # --------------------------------------------------------
+
     def launch(self):
         ui = self.build_gradio()
         ui.launch(server_name="0.0.0.0", server_port=7860)
 
 
-# --------------------------------------------------------
-# MAIN ENTRY
-# --------------------------------------------------------
 if __name__ == "__main__":
     rag = AnalyticsRagVideo()
     rag.ingest_segments()
