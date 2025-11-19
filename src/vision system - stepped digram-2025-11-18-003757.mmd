@@ -1,0 +1,116 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#e3f2fd'
+    primaryTextColor: '#000'
+    primaryBorderColor: '#1976d2'
+    lineColor: '#424242'
+    secondaryColor: '#f3e5f5'
+    tertiaryColor: '#e8f5e9'
+    background: '#fafafa'
+    mainBkg: '#ffffff'
+    secondBkg: '#f5f5f5'
+  layout: fixed
+---
+flowchart TB
+    Start["📹 Camera 1<br>Streaming @ 30 FPS<br>Resolution: 1920x1080"] -- Frame Stream --> Step1["⚡ INGESTION SERVICE<br>────────────<br>Receives: Frame #1234<br>Timestamp: 2024-01-15 10:30:45.123<br>Camera ID: CAM-001<br>Size: 2.3 MB"]
+    Step1 -- Archive to S3 --> S3Store["☁️ S3/MinIO Storage<br>────────────<br>Path: /raw/CAM-001/2024-01-15/<br>frame_1234.jpg<br>Metadata: timestamp, camera_id"]
+    Step1 -- Publish to Kafka --> Kafka1@{ label: "📬 Kafka Topic: frames-raw<br>────────────<br>Message:<br>{<br>  frame_id: 'f-1234',<br>  camera_id: 'CAM-001',<br>  timestamp: '2024-01-15T10:30:45.123Z',<br>  s3_path: '/raw/CAM-001/.../frame_1234.jpg',<br>  resolution: '1920x1080',<br>  format: 'JPEG'<br>}" }
+    Kafka1 -- Consumer Group: preprocessor --> Step2["🔧 PRE-PROCESSING SERVICE<br>────────────<br>Actions:<br>1. Resize: 1920x1080 → 336x336<br>2. Normalize: RGB [0-255] → [0-1]<br>3. Format: JPEG → Tensor<br>4. Add metadata"]
+    Step2 -- Publish processed frame --> Kafka2@{ label: "📬 Kafka Topic: frames-processed<br>────────────<br>Message:<br>{<br>  frame_id: 'f-1234',<br>  camera_id: 'CAM-001',<br>  timestamp: '2024-01-15T10:30:45.123Z',<br>  processed_path: '/processed/...',<br>  tensor_shape: [336, 336, 3],<br>  ready_for_inference: true<br>}" }
+    Kafka2 -- "Fan-out to 4 services" --> FanOut{" "}
+    FanOut -- Consumer 1 --> Step3A@{ label: "🎯 DETECTION SERVICE<br>────────────<br>Model: YOLO v8 / Faster R-CNN<br>────────────<br>Input: Frame tensor [336,336,3]<br>Processing: Object detection<br>────────────<br>Output:<br>{<br>  objects: [<br>    {class: 'person', bbox: [120,80,200,300], conf: 0.95},<br>    {class: 'car', bbox: [300,150,500,280], conf: 0.89},<br>    {class: 'bicycle', bbox: [50,200,150,320], conf: 0.76}<br>  ]<br>}" }
+    FanOut -- Consumer 2 --> Step3B@{ label: "💬 CAPTIONING SERVICE<br>────────────<br>Model: Salesforce/blip-image-captioning-large<br>────────────<br>Input: Frame tensor [336,336,3]<br>Processing: Image-to-text generation<br>────────────<br>Output:<br>{<br>  caption: 'A person riding a bicycle on a<br>  street with cars parked on the side',<br>  confidence: 0.92<br>}" }
+    FanOut -- Consumer 3 --> Step3C@{ label: "📝 OCR SERVICE<br>────────────<br>Model: Tesseract / EasyOCR<br>────────────<br>Input: Frame tensor [336,336,3]<br>Processing: Text detection &amp; recognition<br>────────────<br>Output:<br>{<br>  texts: [<br>    {text: 'STOP', bbox: [450,100,520,140], conf: 0.98},<br>    {text: 'Main St', bbox: [200,50,280,70], conf: 0.94}<br>  ]<br>}" }
+    FanOut -- Consumer 4 --> Step3D["🖼️ CLIP SERVICE<br>────────────<br>Model: openai/clip-vit-large-patch14-336<br>────────────<br>Input: Frame tensor [336,336,3]<br>Processing: Multi-modal embedding<br>────────────<br>Output:<br>{<br>  embedding: [0.23, -0.45, 0.67, ..., 0.12],<br>  dimension: 768,<br>  norm: 1.0<br>}"]
+    Step3A -- Publish results --> Kafka3A["📬 results-detection"]
+    Step3B -- Publish results --> Kafka3B["📬 results-captioning"]
+    Step3C -- Publish results --> Kafka3C["📬 results-ocr"]
+    Step3D -- Publish results --> Kafka3D["📬 results-clip"]
+    Kafka3A -- Consume --> Step4["🔀 AGGREGATION SERVICE<br>────────────<br>Waits for all 4 results for frame_id: f-1234<br>────────────<br>Combines:<br>• Detection: 3 objects detected<br>• Caption: Scene description<br>• OCR: 2 text regions<br>• CLIP: 768-dim embedding<br>────────────<br>Enrichment:<br>• Cross-reference objects with text<br>• Add spatial relationships<br>• Calculate scene complexity score"]
+    Kafka3B -- Consume --> Step4
+    Kafka3C -- Consume --> Step4
+    Kafka3D -- Consume --> Step4
+    Step4 -- Publish aggregated --> Kafka4@{ label: "📬 Kafka Topic: results-aggregated<br>────────────<br>Message:<br>{<br>  frame_id: 'f-1234',<br>  camera_id: 'CAM-001',<br>  timestamp: '2024-01-15T10:30:45.123Z',<br>  detection: {...},<br>  caption: 'A person riding a bicycle...',<br>  ocr: [...],<br>  clip_embedding: [...],<br>  scene_type: 'urban_street',<br>  complexity_score: 0.78<br>}" }
+    Kafka4 -- "Fan-out" --> FanOut2{" "}
+    FanOut2 -- "<span style=padding-left:>FRAME MERGER SERVICE</span>" --> Step5A@{ label: "🎬 FRAME MERGER SERVICE<br>────────────<br>Purpose: Reconstruct video segments<br>────────────<br>Process:<br>1. Buffer frames from same camera<br>2. Analyze temporal continuity<br>3. Detect scene changes<br>4. Group related frames<br>────────────<br>Example Detection:<br>Frames f-1230 to f-1534 (10.13 sec)<br>• Same camera: CAM-001<br>• Continuous timestamps<br>• Similar CLIP embeddings (cosine &gt; 0.85)<br>• Gradual object movement<br>────────────<br>Output:<br>{<br>  video_segment_id: 'vs-456',<br>  camera_id: 'CAM-001',<br>  start_frame: 'f-1230',<br>  end_frame: 'f-1534',<br>  duration_sec: 10.13,<br>  frame_count: 304,<br>  scene_type: 'urban_street',<br>  activity: 'person_cycling'<br>}" }
+    FanOut2 -- BUSINESS SERVOCE --> Step5B["💼 BUSINESS SERVICE<br>────────────<br>Actions:<br>1. Validate data completeness<br>2. Apply business rules<br>3. Check alert thresholds<br>4. Prepare for storage"]
+    FanOut2 -- VECTORIZATION SERVICE --> Step5C@{ label: "📊 VECTORIZATION SERVICE<br>────────────<br>Input: Aggregated text data<br>Text: 'A person riding a bicycle on a<br>street with cars parked. STOP sign visible<br>at Main St intersection'<br>────────────<br>Model: sentence-transformers<br>────────────<br>Output:<br>{<br>  text_embedding: [0.12, -0.34, ..., 0.56],<br>  dimension: 384,<br>  metadata: {frame_id, timestamp, camera_id}<br>}" }
+    FanOut2 -- "GRAPH CONST. SERVICE" --> Step5D["🕸️ GRAPH CONSTRUCTION SERVICE<br>────────────<br>Entity Extraction:<br>• Person (ID: p-789)<br>• Bicycle (ID: b-123)<br>• Car (ID: c-456, c-457)<br>• Location: Main St<br>────────────<br>Relationship Creation:<br>• (p-789)-[RIDING]-&gt;(b-123)<br>• (p-789)-[AT_LOCATION]-&gt;(Main St)<br>• (c-456)-[PARKED_NEAR]-&gt;(Main St)<br>• (p-789)-[APPEARED_AT]-&gt;(10:30:45)<br>────────────<br>Graph Update: Neo4j"]
+    Step5A -- Publish video segment --> Kafka5["📬 Kafka Topic: video-segments<br>────────────<br>Message: Video segment metadata"]
+    Step5B -- Persist --> DB1["🗃️ PostgreSQL Database<br>────────────<br>Tables:<br>• frames (frame_id, camera_id, timestamp, ...)<br>• detections (object_id, frame_id, class, bbox, ...)<br>• captions (frame_id, caption_text, confidence)<br>• ocr_results (frame_id, text, bbox, ...)<br>• video_segments (segment_id, start, end, ...)"]
+    Step5B -- Archive --> DL["📊 Data Lake (Parquet)<br>────────────<br>Partitioned by:<br>/year=2024/month=01/day=15/camera=CAM-001/<br>────────────<br>Contains: Full aggregated results<br>for historical analysis"]
+    Step5B -- Check alerts --> Alert@{ label: "🚨 ALERTING SYSTEM<br>────────────<br>Rules Engine:<br>IF object.class == 'person' AND<br>   time.hour &gt;= 22 AND<br>   zone == 'restricted'<br>THEN trigger_alert()<br>────────────<br>Alert Generated:<br>{<br>  type: 'unauthorized_access',<br>  severity: 'high',<br>  camera: 'CAM-001',<br>  timestamp: '2024-01-15T10:30:45.123Z',<br>  snapshot: frame_1234<br>}" }
+    Step5B -- WebSocket update --> UI1["🖥️ USER INTERFACE<br>────────────<br>Real-time Dashboard Update:<br>• Live feed from CAM-001<br>• Detection overlay (3 objects)<br>• Caption display<br>• Timeline update"]
+    Step5C -- Store --> VDB@{ label: "🔍 Vector Database (Milvus)<br>────────────<br>Collection: frame_embeddings<br>────────────<br>Document:<br>{<br>  id: 'f-1234',<br>  vector: [384-dim],<br>  metadata: {<br>    camera_id: 'CAM-001',<br>    timestamp: '2024-01-15T10:30:45.123Z',<br>    caption: '...',<br>    objects: ['person', 'car', 'bicycle']<br>  }<br>}" }
+    Step5D -- Store --> GDB@{ label: "🕸️ Graph Database (Neo4j)<br>────────────<br>Nodes Created:<br>• (:Person {id: 'p-789'})<br>• (:Bicycle {id: 'b-123'})<br>• (:Location {name: 'Main St'})<br>────────────<br>Edges Created:<br>• (p-789)-[:RIDING]-&gt;(b-123)<br>• (p-789)-[:AT]-&gt;(Main St)" }
+    Kafka5 -- Consume --> Step6["🎥 VIDEO SEGMENT PROCESSOR<br>────────────<br>Actions:<br>1. Retrieve frames f-1230 to f-1534<br>2. Analyze with Qwen 2.5 VL<br>3. Generate video-level insights"]
+    Step6 -- Qwen Analysis --> Qwen@{ label: "🤖 Qwen 2.5 VL Model<br>────────────<br>Input: Video segment (10.13 sec, 304 frames)<br>────────────<br>Analysis:<br>• Action recognition: 'cycling'<br>• Behavior analysis: 'normal traffic'<br>• Anomaly detection: 'none'<br>• Event summary: 'Person safely cycling<br>  through intersection at Main St'<br>────────────<br>Output:<br>{<br>  video_id: 'vs-456',<br>  action: 'cycling',<br>  behavior: 'normal',<br>  anomaly_score: 0.05,<br>  summary: '...',<br>  key_moments: [<br>    {frame: 'f-1230', event: 'enters_frame'},<br>    {frame: 'f-1380', event: 'passes_stop_sign'},<br>    {frame: 'f-1534', event: 'exits_frame'}<br>  ]<br>}" }
+    Qwen -- Store analysis --> DB1
+    UI1 -- User Query --> LLMQuery@{ label: "🤖 LLM QUERY SERVICE<br>────────────<br>User: 'Show me all bicycle activity<br>on Main St today'<br>────────────<br>Process:<br>1. Parse query intent<br>2. Extract entities: [bicycle, Main St, today]<br>3. Query Vector DB (semantic search)<br>4. Query Graph DB (relationship query)" }
+    LLMQuery -- Semantic search --> VDB
+    LLMQuery -- Graph traversal --> GDB
+    VDB -- Top 10 similar frames --> LLMQuery
+    GDB -- Related entities & events --> LLMQuery
+    LLMQuery -- RAG prompt --> LLM@{ label: "🌟 Large Language Model<br>────────────<br>Context:<br>• 10 relevant frames with captions<br>• 15 graph relationships<br>• 3 video segments<br>────────────<br>Prompt:<br>'Based on the following video data...<br>User question: Show me all bicycle<br>activity on Main St today'<br>────────────<br>Response:<br>'I found 3 instances of bicycle activity<br>on Main St today:<br>1. 10:30 AM - Person cycling through<br>   intersection (10 sec, CAM-001)<br>2. 11:45 AM - Two cyclists passing<br>   (15 sec, CAM-001)<br>3. 2:15 PM - Delivery cyclist stopped<br>   (8 sec, CAM-001)<br><br>All activities were normal with no<br>safety concerns detected.'" }
+    LLM -- Response --> UI1
+    Alert -- Notification --> UI1
+    n1["Wihsper service?"]
+    n2["post-process?"]
+    Kafka1@{ shape: rect}
+    Kafka2@{ shape: rect}
+    Step3A@{ shape: rect}
+    Step3B@{ shape: rect}
+    Step3C@{ shape: rect}
+    Kafka4@{ shape: rect}
+    Step5A@{ shape: rect}
+    Step5C@{ shape: rect}
+    Alert@{ shape: rect}
+    VDB@{ shape: rect}
+    GDB@{ shape: rect}
+    Qwen@{ shape: rect}
+    LLMQuery@{ shape: rect}
+    LLM@{ shape: rect}
+    n1@{ icon: "fa:circle-question", pos: "b"}
+    n2@{ icon: "fa:circle-question", pos: "b"}
+     Start:::cameraStyle
+     Step1:::serviceStyle
+     S3Store:::storageStyle
+     Kafka1:::kafkaStyle
+     Step2:::serviceStyle
+     Kafka2:::kafkaStyle
+     Step3A:::aiStyle
+     Step3B:::aiStyle
+     Step3C:::aiStyle
+     Step3D:::aiStyle
+     Kafka3A:::kafkaStyle
+     Kafka3B:::kafkaStyle
+     Kafka3C:::kafkaStyle
+     Kafka3D:::kafkaStyle
+     Step4:::aiStyle
+     Kafka4:::kafkaStyle
+     Step5A:::serviceStyle
+     Step5B:::serviceStyle
+     Step5C:::serviceStyle
+     Step5D:::serviceStyle
+     Kafka5:::kafkaStyle
+     DB1:::storageStyle
+     DL:::storageStyle
+     Alert:::uiStyle
+     UI1:::uiStyle
+     VDB:::storageStyle
+     GDB:::storageStyle
+     Step6:::serviceStyle
+     Qwen:::aiStyle
+     LLMQuery:::llmStyle
+     LLM:::llmStyle
+    classDef cameraStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef serviceStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef kafkaStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef aiStyle fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#000
+    classDef storageStyle fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef uiStyle fill:#c5e1a5,stroke:#558b2f,stroke-width:2px,color:#000
+    classDef llmStyle fill:#ffcdd2,stroke:#c62828,stroke-width:3px,color:#000
+    style n1 stroke:#D50000
+    style n2 stroke:#D50000

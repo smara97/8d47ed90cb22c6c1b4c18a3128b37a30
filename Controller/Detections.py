@@ -66,14 +66,9 @@ class ObjectsDetector:
                 "class_id": int(cls_id),
                 "class_name": self.names[int(cls_id)],
                 "confidence": float(cf),
-                "bbox": {
-                    "x1": float(box[0]),
-                    "y1": float(box[1]),
-                    "x2": float(box[2]),
-                    "y2": float(box[3]),
-                    "width": float(box[2] - box[0]),
-                    "height": float(box[3] - box[1]),
-                }
+                "bbox": [float(box[0]), float(box[1]), float(box[2]), float(box[3])],
+                "width": float(box[2] - box[0]),
+                "height": float(box[3] - box[1]),
             })
 
         return detections
