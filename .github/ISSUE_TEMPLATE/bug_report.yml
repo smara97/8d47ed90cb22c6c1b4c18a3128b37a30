@@ -1,0 +1,80 @@
+# ============================================================================
+# GitHub Bug Report Template
+# ============================================================================
+#
+# PURPOSE:
+#   Structured bug report template for Video RAG microservices to ensure
+#   consistent and actionable bug reports from users and contributors.
+#
+# ============================================================================
+
+name: 🐛 Bug Report
+description: Report a bug in the video RAG microservices
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is affected?
+      options:
+        - Video Processing
+        - OCR Service
+        - Object Detection
+        - Video Captioning
+        - Kafka Integration
+        - Vector Database
+        - API Gateway
+        - Infrastructure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Start services with `make up`
+        2. Send video to processing endpoint
+        3. Check Kafka logs
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log output
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Git commit or tag
+      placeholder: main branch / commit hash

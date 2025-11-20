@@ -1,0 +1,18 @@
+# ============================================================================
+# GitHub Issue Template Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Configures GitHub issue templates and contact links for the Video RAG
+#   microservices project to streamline bug reports and feature requests.
+#
+# ============================================================================
+
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/your-org/video-rag-microservices/tree/main/.docs
+    about: Check the documentation for setup and usage guides
+  - name: 💬 Discussions
+    url: https://github.com/your-org/video-rag-microservices/discussions
+    about: Ask questions and discuss ideas with the community

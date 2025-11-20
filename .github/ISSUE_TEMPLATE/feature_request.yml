@@ -1,0 +1,72 @@
+# ============================================================================
+# GitHub Feature Request Template
+# ============================================================================
+#
+# PURPOSE:
+#   Structured feature request template for Video RAG microservices to
+#   capture comprehensive feature proposals and enhancement suggestions.
+#
+# ============================================================================
+
+name: ✨ Feature Request
+description: Suggest a new feature for the video RAG system
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe your idea below.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What type of feature is this?
+      options:
+        - Video Processing Enhancement
+        - New AI/ML Model
+        - Kafka Integration
+        - API Improvement
+        - Performance Optimization
+        - Monitoring/Observability
+        - Infrastructure
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: Describe the current limitation or need
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How should this feature work?
+      placeholder: Describe your proposed implementation
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider?
+
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact Areas
+      description: Which areas would this feature affect?
+      options:
+        - label: Breaking changes to existing APIs
+        - label: Database schema changes
+        - label: New dependencies required
+        - label: Performance implications
+        - label: Security considerations

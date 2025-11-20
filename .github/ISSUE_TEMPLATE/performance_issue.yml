@@ -1,0 +1,67 @@
+# ============================================================================
+# GitHub Performance Issue Template
+# ============================================================================
+#
+# PURPOSE:
+#   Structured performance issue template for Video RAG microservices to
+#   capture detailed performance problems and optimization opportunities.
+#
+# ============================================================================
+
+name: ⚡ Performance Issue
+description: Report performance problems or bottlenecks
+title: "[Performance]: "
+labels: ["performance"]
+body:
+  - type: dropdown
+    id: service
+    attributes:
+      label: Affected Service
+      description: Which service has performance issues?
+      options:
+        - Video Processing Pipeline
+        - OCR Service
+        - Object Detection Service
+        - Video Captioning Service
+        - Kafka Broker
+        - Vector Database (Qdrant)
+        - MinIO Storage
+        - Overall System
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Performance Metrics
+      description: Current vs expected performance
+      placeholder: |
+        - Processing time: 30s (expected: 5s)
+        - Memory usage: 2GB (expected: 500MB)
+        - CPU usage: 90% (expected: 30%)
+    validations:
+      required: true
+
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload Details
+      description: What workload triggers this issue?
+      placeholder: |
+        - Video size: 100MB
+        - Duration: 10 minutes
+        - Resolution: 1080p
+        - Concurrent requests: 5
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: System specifications and configuration
+      placeholder: |
+        - CPU: 8 cores
+        - RAM: 16GB
+        - Docker resources allocated
+        - Kafka partition count

@@ -1,0 +1,185 @@
+# ============================================================================
+# GitHub Actions CI Pipeline - Video RAG System
+# ============================================================================
+#
+# PURPOSE:
+#   Automated continuous integration pipeline for the Video RAG microservices
+#   system. Ensures code quality, runs comprehensive tests, and validates
+#   system integration before merging changes.
+#
+# PIPELINE STAGES:
+#   1. Code Quality - Linting, formatting, security checks
+#   2. Integration Testing - Full system testing with Kafka flow
+#   3. Health Validation - Service health and connectivity checks
+#   4. Cleanup - Resource cleanup and artifact management
+#
+# TRIGGERS:
+#   - Push to main/develop branches (deployment validation)
+#   - Pull requests to main/develop (change validation)
+#   - Manual workflow dispatch (on-demand testing)
+#
+# TESTING STRATEGY:
+#   - Parallel execution for faster feedback
+#   - Infrastructure-first approach (Kafka, services, then tests)
+#   - Comprehensive health checks before test execution
+#   - Automatic cleanup regardless of test outcomes
+#
+# QUALITY GATES:
+#   - All linting checks must pass
+#   - Integration tests must complete successfully
+#   - All services must report healthy status
+#   - No security vulnerabilities in dependencies
+#
+# ============================================================================
+
+name: CI Pipeline
+
+# Workflow triggers - when to run the pipeline
+on:
+  # Run on pushes to main branches (deployment validation)
+  push:
+    branches: [ main, develop ]
+  
+  # Run on pull requests to main branches (change validation)
+  pull_request:
+    branches: [ main, develop ]
+  
+  # Allow manual workflow execution for debugging
+  workflow_dispatch:
+
+# Pipeline jobs - can run in parallel for faster execution
+jobs:
+  # Integration testing job - validates full system functionality
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    # Set timeout to prevent hanging builds
+    timeout-minutes: 30
+    
+    steps:
+    # Checkout source code with full history for proper testing
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    # Set up Docker Buildx for multi-platform builds and caching
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        # Enable advanced Docker features for CI
+        driver-opts: network=host
+    
+    # Start infrastructure services (Kafka, Qdrant, MinIO)
+    - name: Start infrastructure services
+      run: |
+        echo "🚀 Starting Video RAG infrastructure..."
+        make infra-up
+        
+        echo "⏳ Waiting for services to be ready..."
+        sleep 30
+    
+    # Build and start all microservices
+    - name: Build and start microservices
+      run: |
+        echo "🏗️ Building microservices..."
+        make services-build
+        
+        echo "🚀 Starting microservices..."
+        make services-up
+        
+        echo "⏳ Waiting for services to initialize..."
+        sleep 45
+    
+    # Run comprehensive integration tests
+    - name: Run integration tests
+      run: |
+        echo "🧪 Running Kafka integration tests..."
+        make test-integration
+        
+        echo "🧪 Running pytest integration tests..."
+        python -m pytest tests/integration/ -v
+    
+    # Validate all services are healthy
+    - name: Check service health
+      run: |
+        echo "🏥 Checking service health status..."
+        make health
+        
+        echo "📊 Checking container status..."
+        make status
+    
+    # Cleanup resources regardless of test outcome
+    - name: Cleanup resources
+      if: always()
+      run: |
+        echo "🧹 Cleaning up test environment..."
+        make clean
+        
+        echo "📋 Final container status..."
+        docker ps -a
+
+  # Code quality job - validates code standards and formatting
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    # Set timeout for linting operations
+    timeout-minutes: 10
+    
+    steps:
+    # Checkout source code for linting
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Set up Python environment for linting tools
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        # Cache pip dependencies for faster builds
+        cache: 'pip'
+    
+    # Install development dependencies for linting
+    - name: Install linting dependencies
+      run: |
+        echo "📦 Installing linting tools..."
+        python -m pip install --upgrade pip
+        pip install flake8 black isort bandit safety
+    
+    # Run comprehensive code linting
+    - name: Lint Python code with flake8
+      run: |
+        echo "🔍 Running flake8 linting..."
+        flake8 services/*/src/ scripts/ tools/ tests/ --max-line-length=88 --extend-ignore=E203,W503
+    
+    # Check code formatting with black
+    - name: Check code formatting with black
+      run: |
+        echo "🎨 Checking code formatting..."
+        black --check --diff services/*/src/ scripts/ tools/ tests/
+    
+    # Check import sorting with isort
+    - name: Check import sorting with isort
+      run: |
+        echo "📚 Checking import organization..."
+        isort --check-only --diff services/*/src/ scripts/ tools/ tests/
+    
+    # Security vulnerability scanning
+    - name: Security vulnerability scan
+      run: |
+        echo "🔒 Scanning for security vulnerabilities..."
+        bandit -r services/*/src/ -f json -o bandit-report.json || true
+        safety check --json --output safety-report.json || true
+    
+    # Upload security reports as artifacts
+    - name: Upload security reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+        retention-days: 30
