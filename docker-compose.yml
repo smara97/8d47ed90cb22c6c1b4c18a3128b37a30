@@ -1,0 +1,38 @@
+# ============================================================================
+# Video RAG Microservices - Root Compose Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Master orchestration file that integrates infrastructure and services
+#   with environment-specific configurations for seamless deployment.
+#
+# ARCHITECTURE:
+#   Infrastructure (Kafka, Qdrant, MinIO) + Microservices (OCR, Detection, Captioning)
+#   with environment-specific overrides from configs/{dev,staging,production}/
+#
+# USAGE:
+#   # Development (default)
+#   docker-compose up -d
+#   
+#   # Staging
+#   docker-compose -f docker-compose.yml -f configs/staging/docker/docker-compose.staging.yml up -d
+#   
+#   # Production
+#   docker-compose -f docker-compose.yml -f configs/production/docker/docker-compose.prod.yml up -d
+#
+# ============================================================================
+
+name: video-rag
+
+include:
+  # Infrastructure services (foundation layer)
+  - path: ./infrastructure/docker-compose.yml
+  
+  # Microservices (application layer)
+  - path: ./services/ocr-service/docker-compose.yml
+  - path: ./services/detector-service/docker-compose.yml
+  - path: ./services/captioner-service/docker-compose.yml
+  - path: ./services/frame-aggregator/docker-compose.yml
+
+# Default environment configuration (development)
+# Override with environment-specific configs for staging/production
