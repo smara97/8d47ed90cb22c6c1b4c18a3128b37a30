@@ -1,0 +1,100 @@
+# ============================================================================
+# Frame Aggregator Service - Docker Compose Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Docker Compose configuration for the frame aggregator service that
+#   combines OCR, detection, and captioning results into unified metadata
+#   for downstream processing in the Video RAG pipeline.
+#
+# SERVICE ROLE:
+#   Acts as a central aggregation point that:
+#   - Consumes results from OCR, detection, and captioning services
+#   - Combines partial results into complete frame metadata
+#   - Publishes unified metadata to downstream services
+#   - Provides health monitoring and metrics collection
+#
+# INTEGRATION POINTS:
+#   Input Topics:  ocr-results, detection-results, caption-results
+#   Output Topic:  aggregated-frame-metadata
+#   Dependencies:  Kafka message broker
+#   Monitoring:    Health endpoint on port 8004
+#
+# RESOURCE ALLOCATION:
+#   - Lightweight service with minimal CPU/memory requirements
+#   - Optimized for high-throughput message processing
+#   - Suitable for horizontal scaling in production
+#
+# SECURITY CONFIGURATION:
+#   - Runs with no-new-privileges security option
+#   - Non-root user execution within container
+#   - Network isolation via dedicated bridge network
+#
+# ============================================================================
+
+version: '3.8'
+
+services:
+  frame-aggregator:
+    # Build configuration using local Dockerfile
+    build:
+      context: .              # Build context is current directory
+      dockerfile: Dockerfile   # Use multi-stage Dockerfile for optimization
+    
+    # Container identification and networking
+    container_name: frame-aggregator  # Fixed name for service discovery
+    hostname: frame-aggregator        # Internal hostname for network communication
+    
+    # Port mapping for external access to health/metrics endpoints
+    ports:
+      - "8004:8000"  # Maps host port 8004 to container port 8000
+    
+    # Environment variables for service configuration
+    environment:
+      # Kafka connection configuration
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092  # Kafka broker connection string
+      
+      # Input topics for consuming service results
+      - KAFKA_INPUT_TOPICS=ocr-results,detection-results,caption-results
+      
+      # Output topic for publishing aggregated metadata
+      - KAFKA_OUTPUT_TOPIC=aggregated-frame-metadata
+      
+      # Consumer group for Kafka message consumption
+      - KAFKA_CONSUMER_GROUP=frame-aggregator-group
+      
+      # Logging configuration for operational visibility
+      - LOG_LEVEL=INFO  # Standard logging level for production
+    
+    # Service dependencies - ensures Kafka is available before startup
+    depends_on:
+      - kafka  # Waits for Kafka service to be created (not necessarily healthy)
+    
+    # Network configuration for service communication
+    networks:
+      - video-rag-network  # Connects to shared network for inter-service communication
+    
+    # Restart policy for high availability
+    restart: unless-stopped  # Automatically restarts unless explicitly stopped
+    
+    # Security configuration for container hardening
+    security_opt:
+      - no-new-privileges:true  # Prevents privilege escalation within container
+    
+    # Resource allocation and limits for performance management
+    deploy:
+      resources:
+        # Maximum resource limits to prevent resource exhaustion
+        limits:
+          memory: 512M    # Maximum memory allocation
+          cpus: '0.5'     # Maximum CPU allocation (0.5 cores)
+        
+        # Guaranteed resource reservations for consistent performance
+        reservations:
+          memory: 256M    # Guaranteed memory allocation
+          cpus: '0.25'    # Guaranteed CPU allocation (0.25 cores)
+
+# Network configuration for inter-service communication
+networks:
+  video-rag-network:
+    external: true  # Uses existing network created by infrastructure services
