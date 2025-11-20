@@ -40,26 +40,51 @@ class DetectorService:
         self.running = False
         
     def connect_kafka(self):
-        """Connect to Kafka consumer and producer"""
-        try:
-            self.consumer = KafkaConsumer(
-                KAFKA_INPUT_TOPIC,
-                bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-                group_id=KAFKA_CONSUMER_GROUP,
-                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                auto_offset_reset='latest'
-            )
-            
-            self.producer = KafkaProducer(
-                bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-                value_serializer=lambda x: json.dumps(x).encode('utf-8')
-            )
-            
-            logger.info(f"Connected to Kafka: {KAFKA_BOOTSTRAP_SERVERS}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to connect to Kafka: {e}")
-            return False
+        """Connect to Kafka consumer and producer with retry logic"""
+        max_retries = 5
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting Kafka connection (attempt {attempt + 1}/{max_retries})...")
+                
+                # Test connection first
+                test_producer = KafkaProducer(
+                    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+                    value_serializer=lambda x: json.dumps(x).encode('utf-8'),
+                    request_timeout_ms=5000,
+                    api_version_auto_timeout_ms=5000
+                )
+                test_producer.close()
+                
+                # Create actual connections
+                self.consumer = KafkaConsumer(
+                    KAFKA_INPUT_TOPIC,
+                    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+                    group_id=KAFKA_CONSUMER_GROUP,
+                    value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                    auto_offset_reset='latest',
+                    consumer_timeout_ms=1000
+                )
+                
+                self.producer = KafkaProducer(
+                    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+                    value_serializer=lambda x: json.dumps(x).encode('utf-8')
+                )
+                
+                logger.info(f"Successfully connected to Kafka: {KAFKA_BOOTSTRAP_SERVERS}")
+                return True
+                
+            except Exception as e:
+                logger.warning(f"Kafka connection attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"Failed to connect to Kafka after {max_retries} attempts")
+        
+        return False
     
     def process_frame(self, frame_data):
         """Process frame and detect objects (mock implementation)"""

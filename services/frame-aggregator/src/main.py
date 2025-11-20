@@ -57,21 +57,50 @@ class FrameAggregator:
         self.producer = None
         
     def setup_kafka(self):
-        """Initialize Kafka consumer and producer"""
-        self.consumer = KafkaConsumer(
-            *self.input_topics,
-            bootstrap_servers=self.kafka_servers,
-            group_id=self.consumer_group,
-            value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-            auto_offset_reset='latest'
-        )
+        """Initialize Kafka consumer and producer with retry logic"""
+        max_retries = 5
+        retry_delay = 2
         
-        self.producer = KafkaProducer(
-            bootstrap_servers=self.kafka_servers,
-            value_serializer=lambda x: json.dumps(x).encode('utf-8')
-        )
-        
-        logger.info("Kafka clients initialized")
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting Kafka connection (attempt {attempt + 1}/{max_retries})...")
+                
+                # Test connection first
+                test_producer = KafkaProducer(
+                    bootstrap_servers=self.kafka_servers,
+                    value_serializer=lambda x: json.dumps(x).encode('utf-8'),
+                    request_timeout_ms=5000,
+                    api_version_auto_timeout_ms=5000
+                )
+                test_producer.close()
+                
+                # Create actual connections
+                self.consumer = KafkaConsumer(
+                    *self.input_topics,
+                    bootstrap_servers=self.kafka_servers,
+                    group_id=self.consumer_group,
+                    value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                    auto_offset_reset='latest',
+                    consumer_timeout_ms=1000
+                )
+                
+                self.producer = KafkaProducer(
+                    bootstrap_servers=self.kafka_servers,
+                    value_serializer=lambda x: json.dumps(x).encode('utf-8')
+                )
+                
+                logger.info(f"Successfully connected to Kafka: {self.kafka_servers}")
+                return
+                
+            except Exception as e:
+                logger.warning(f"Kafka connection attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    logger.error(f"Failed to connect to Kafka after {max_retries} attempts")
+                    raise Exception("Could not establish Kafka connection")
     
     def process_message(self, message):
         """Process incoming service result message"""

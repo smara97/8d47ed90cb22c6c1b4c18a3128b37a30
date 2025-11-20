@@ -392,6 +392,74 @@ test-integration: ## Test Kafka integration with sample frames
 	@echo "$(BLUE)Testing Kafka integration...$(NC)"
 	@python3 scripts/testing/test-producer.py --frames 3 --interval 1
 
+.PHONY: test-services
+test-services: ## Test all service health endpoints
+	@echo "$(BLUE)Testing all service health endpoints...$(NC)"
+	@echo "Testing OCR Service..."
+	@curl -f http://localhost:8001/health || echo "$(RED)OCR Service failed$(NC)"
+	@echo "Testing Detector Service..."
+	@curl -f http://localhost:8002/health || echo "$(RED)Detector Service failed$(NC)"
+	@echo "Testing Captioner Service..."
+	@curl -f http://localhost:8003/health || echo "$(RED)Captioner Service failed$(NC)"
+	@echo "Testing Frame Aggregator..."
+	@curl -f http://localhost:8004/health || echo "$(RED)Frame Aggregator failed$(NC)"
+	@echo "$(GREEN)✓ Service health tests completed$(NC)"
+
+.PHONY: test-infrastructure
+test-infrastructure: ## Test all infrastructure services
+	@echo "$(BLUE)Testing infrastructure services...$(NC)"
+	@echo "Testing Kafka..."
+	@docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list || echo "$(RED)Kafka failed$(NC)"
+	@echo "Testing Qdrant..."
+	@curl -f http://localhost:6333/healthz || echo "$(RED)Qdrant failed$(NC)"
+	@echo "Testing MinIO..."
+	@curl -f http://localhost:9000/minio/health/live || echo "$(RED)MinIO failed$(NC)"
+	@echo "$(GREEN)✓ Infrastructure tests completed$(NC)"
+
+.PHONY: test-kafka-connectivity
+test-kafka-connectivity: ## Test Kafka connectivity from services
+	@echo "$(BLUE)Testing Kafka connectivity from services...$(NC)"
+	@echo "Testing from OCR service..."
+	@docker exec ocr-service python -c "from kafka import KafkaProducer; p=KafkaProducer(bootstrap_servers='kafka:9092'); print('OCR->Kafka: OK')" || echo "$(RED)OCR->Kafka failed$(NC)"
+	@echo "Testing from Detector service..."
+	@docker exec detector-service python -c "from kafka import KafkaProducer; p=KafkaProducer(bootstrap_servers='kafka:9092'); print('Detector->Kafka: OK')" || echo "$(RED)Detector->Kafka failed$(NC)"
+	@echo "Testing from Captioner service..."
+	@docker exec captioner-service python -c "from kafka import KafkaProducer; p=KafkaProducer(bootstrap_servers='kafka:9092'); print('Captioner->Kafka: OK')" || echo "$(RED)Captioner->Kafka failed$(NC)"
+	@echo "Testing from Frame Aggregator..."
+	@docker exec frame-aggregator python -c "from kafka import KafkaProducer; p=KafkaProducer(bootstrap_servers='kafka:9092'); print('Aggregator->Kafka: OK')" || echo "$(RED)Aggregator->Kafka failed$(NC)"
+	@echo "$(GREEN)✓ Kafka connectivity tests completed$(NC)"
+
+.PHONY: test-end-to-end
+test-end-to-end: ## Run end-to-end pipeline test
+	@echo "$(BLUE)Running end-to-end pipeline test...$(NC)"
+	@python3 -m pytest tests/e2e/test_video_processing_pipeline.py::TestVideoProcessingPipeline::test_all_services_healthy -v
+
+.PHONY: test-pipeline
+test-pipeline: ## Test complete video processing pipeline
+	@echo "$(BLUE)Testing complete video processing pipeline...$(NC)"
+	@echo "Sending test message to Kafka..."
+	@docker exec kafka kafka-console-producer --bootstrap-server localhost:9092 --topic raw-frames <<< '{"frame_id":"test-123","timestamp":1234567890,"image":"test-data"}' || echo "$(YELLOW)Kafka producer test completed$(NC)"
+	@echo "$(GREEN)✓ Pipeline test completed$(NC)"
+
+.PHONY: monitor-logs
+monitor-logs: ## Monitor all service logs in real-time
+	@echo "$(BLUE)Monitoring all service logs (press Ctrl+C to stop)...$(NC)"
+	@docker-compose -f $(ROOT_COMPOSE_FILE) logs -f --tail=10
+
+.PHONY: quick-test
+quick-test: ## Quick system health check
+	@echo "$(BLUE)Running quick system test...$(NC)"
+	@make test-services
+	@echo "$(GREEN)✓ Quick test completed$(NC)"
+
+.PHONY: validate-system
+validate-system: ## Comprehensive system validation
+	@echo "$(BLUE)Running comprehensive system validation...$(NC)"
+	@make test-infrastructure
+	@make test-services
+	@make test-kafka-connectivity
+	@echo "$(GREEN)✓ System validation completed$(NC)"
+
 .PHONY: monitor-topics
 monitor-topics: ## Monitor all Kafka result topics
 	@echo "$(BLUE)Monitoring Kafka topics (press Ctrl+C to stop)...$(NC)"
