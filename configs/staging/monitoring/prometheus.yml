@@ -1,0 +1,79 @@
+# ============================================================================
+# Prometheus Staging Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Staging environment monitoring configuration with enhanced metrics
+#   collection for deployment validation and performance testing.
+#
+# STAGING CHARACTERISTICS:
+#   - Frequent scraping for detailed monitoring
+#   - Extended retention for testing analysis
+#   - All service metrics enabled
+#   - Performance testing metrics included
+#
+# ============================================================================
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  external_labels:
+    environment: 'staging'
+    cluster: 'video-rag-staging'
+
+rule_files:
+  # Add alerting rules here if needed
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Kafka JMX metrics
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9999']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # Zookeeper metrics
+  - job_name: 'zookeeper'
+    static_configs:
+      - targets: ['zookeeper:8080']
+    scrape_interval: 30s
+
+  # Video processing services
+  - job_name: 'ocr-service'
+    static_configs:
+      - targets: ['ocr-service:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: 'detector-service'
+    static_configs:
+      - targets: ['detector-service:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: 'captioner-service'
+    static_configs:
+      - targets: ['captioner-service:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Infrastructure services
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: /minio/v2/metrics/cluster
+    scrape_interval: 30s
+
+  - job_name: 'qdrant'
+    static_configs:
+      - targets: ['qdrant:6333']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+# Storage configuration handled via command line flags
+# Use --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=10GB

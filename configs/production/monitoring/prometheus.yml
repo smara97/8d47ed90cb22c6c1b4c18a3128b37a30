@@ -1,0 +1,140 @@
+# ============================================================================
+# Prometheus Production Configuration - Video RAG System
+# ============================================================================
+#
+# PURPOSE:
+#   Production monitoring configuration with comprehensive metrics collection,
+#   alerting rules, and performance optimization for enterprise deployment.
+#
+# PRODUCTION FEATURES:
+#   - High-frequency metrics collection for real-time monitoring
+#   - Service discovery for dynamic scaling environments
+#   - Alert rule integration for proactive issue detection
+#   - Resource optimization for production workloads
+#   - Security and access control considerations
+#
+# ============================================================================
+
+global:
+  # Production scrape intervals for real-time monitoring
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  
+  # External labels for multi-cluster environments
+  external_labels:
+    cluster: 'video-rag-production'
+    environment: 'production'
+
+# Rule files for alerting
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+# Alert manager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Production scrape configurations
+scrape_configs:
+  # Video RAG microservices monitoring
+  - job_name: 'video-rag-services'
+    static_configs:
+      - targets:
+        - 'ocr-service:8000'
+        - 'detector-service:8000'
+        - 'captioner-service:8000'
+    
+    metrics_path: '/metrics'
+    scrape_interval: 5s  # High frequency for production
+    scrape_timeout: 3s
+    
+    # Service-specific metric relabeling
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'video_rag_.*'
+        target_label: 'service_type'
+        replacement: 'microservice'
+
+  # Kafka cluster monitoring
+  - job_name: 'kafka-cluster'
+    static_configs:
+      - targets: 
+        - 'kafka:9999'  # JMX metrics
+        - 'kafka-exporter:9308'  # Kafka exporter
+    
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    
+    # Kafka-specific labels
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: 'kafka_cluster'
+        replacement: 'video-rag-production'
+
+  # Infrastructure monitoring
+  - job_name: 'infrastructure'
+    static_configs:
+      - targets:
+        - 'zookeeper:8080'  # Zookeeper metrics
+        - 'qdrant:6333'     # Qdrant metrics
+        - 'minio:9000'      # MinIO metrics
+    
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Node and system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+        - 'node-exporter:9100'
+    
+    scrape_interval: 15s
+    
+    # System-level metric collection
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'node_.*'
+        target_label: 'metric_type'
+        replacement: 'system'
+
+  # Container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets:
+        - 'cadvisor:8080'
+    
+    scrape_interval: 10s
+    metrics_path: '/metrics'
+    
+    # Container-specific labeling
+    relabel_configs:
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: 'service_name'
+
+  # Application performance monitoring
+  - job_name: 'video-rag-apm'
+    static_configs:
+      - targets:
+        - 'jaeger:14269'  # Jaeger metrics
+    
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+# Remote write for long-term storage (optional)
+remote_write:
+  - url: "https://prometheus-remote-write.example.com/api/v1/write"
+    basic_auth:
+      username: "${REMOTE_WRITE_USERNAME}"
+      password: "${REMOTE_WRITE_PASSWORD}"
+    
+    # Write relabeling for cost optimization
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'video_rag_critical_.*'
+        target_label: 'retention'
+        replacement: 'long_term'
+
+# Storage configuration handled via command line flags
+# Use --storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB

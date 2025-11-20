@@ -1,0 +1,103 @@
+# ============================================================================
+# Docker Compose Staging Environment Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Staging environment overrides for Video RAG system that closely mirror
+#   production settings while maintaining debugging capabilities for validation.
+#
+# STAGING CHARACTERISTICS:
+#   - Production-like resource limits with monitoring enabled
+#   - Enhanced logging for deployment validation
+#   - Security settings similar to production
+#   - Performance monitoring and health checks
+#   - Load testing capabilities enabled
+#
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # Kafka staging configuration
+  kafka:
+    environment:
+      # Production-like settings with enhanced monitoring
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer=INFO,kafka.consumer=INFO"
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false"
+      
+    # Resource limits closer to production
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.5'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+  # Staging overrides for microservices
+  ocr-service:
+    environment:
+      LOG_LEVEL: "INFO"
+      # Enable metrics collection
+      ENABLE_METRICS: "true"
+    
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.5'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+  detector-service:
+    environment:
+      LOG_LEVEL: "INFO"
+      ENABLE_METRICS: "true"
+      # Use production model size
+      MODEL_SIZE: "medium"
+    
+    deploy:
+      resources:
+        limits:
+          memory: 5G
+          cpus: '1.5'
+        reservations:
+          memory: 3G
+          cpus: '1.0'
+
+  captioner-service:
+    environment:
+      LOG_LEVEL: "INFO"
+      ENABLE_METRICS: "true"
+    
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '1.5'
+        reservations:
+          memory: 3G
+          cpus: '1.0'
+
+  # Staging monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/staging/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'

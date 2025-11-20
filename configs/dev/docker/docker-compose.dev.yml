@@ -1,0 +1,99 @@
+# ============================================================================
+# Docker Compose Override - Development Environment Customizations
+# ============================================================================
+#
+# PURPOSE:
+#   Provides development-specific overrides for the Video RAG system.
+#   This file is automatically loaded by docker-compose when present,
+#   allowing local customizations without modifying the main compose file.
+#
+# DEVELOPMENT FEATURES:
+#   - Enhanced logging for debugging
+#   - Relaxed security constraints for testing
+#   - Additional development tools and utilities
+#   - Performance profiling capabilities
+#
+# USAGE:
+#   - Automatically loaded with 'docker-compose up'
+#   - Overrides settings in main docker-compose.yml
+#   - Should not be committed to production branches
+#
+# CUSTOMIZATIONS:
+#   - Debug logging enabled for all services
+#   - UI tools configured for full access
+#   - Volume mounts for live code reloading
+#   - Development-specific environment variables
+#
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # Kafka broker development overrides
+  kafka:
+    environment:
+      # Enable comprehensive debug logging for development
+      # Helps troubleshoot message flow and consumer issues
+      KAFKA_LOG4J_LOGGERS: "kafka=DEBUG,kafka.controller=DEBUG,kafka.producer=DEBUG,kafka.consumer=DEBUG"
+      
+      # Reduce log retention for faster testing cycles
+      KAFKA_LOG_RETENTION_MINUTES: 30
+      
+      # Enable JMX for monitoring and profiling
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+    
+    # Add volume mount for custom Kafka configurations
+    volumes:
+      - ./configs/kafka/dev-server.properties:/opt/kafka/config/server.properties:ro
+  
+  # Kafka UI development configuration
+  kafka-ui:
+    environment:
+      # Enable all administrative features in development
+      DYNAMIC_CONFIG_ENABLED: "true"
+      
+      # Allow topic and configuration modifications
+      KAFKA_CLUSTERS_0_READONLY: "false"
+      
+      # Enable advanced features for debugging
+      KAFKA_CLUSTERS_0_AUDIT_ENABLED: "true"
+      
+      # Show internal topics for troubleshooting
+      KAFKA_CLUSTERS_0_SHOW_INTERNAL_TOPICS: "true"
+  
+  # Development overrides for microservices
+  ocr-service:
+    environment:
+      # Enable debug logging for OCR processing
+      LOG_LEVEL: "DEBUG"
+      
+      # Reduce processing delays for faster testing
+      OCR_BATCH_SIZE: 1
+    
+    # Mount source code for live reloading (if using development server)
+    volumes:
+      - ./services/ocr-service/src:/app/src:ro
+  
+  detector-service:
+    environment:
+      # Enable debug logging for object detection
+      LOG_LEVEL: "DEBUG"
+      
+      # Use smaller model for faster development cycles
+      MODEL_SIZE: "nano"
+    
+    # Mount source code for live reloading
+    volumes:
+      - ./services/detector-service/src:/app/src:ro
+  
+  captioner-service:
+    environment:
+      # Enable debug logging for image captioning
+      LOG_LEVEL: "DEBUG"
+      
+      # Reduce caption length for faster processing
+      MAX_CAPTION_LENGTH: 20
+    
+    # Mount source code for live reloading
+    volumes:
+      - ./services/captioner-service/src:/app/src:ro

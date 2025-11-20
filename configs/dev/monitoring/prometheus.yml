@@ -1,0 +1,77 @@
+# ============================================================================
+# Prometheus Configuration - Video RAG System Monitoring
+# ============================================================================
+#
+# PURPOSE:
+#   Configures Prometheus to scrape metrics from all Video RAG microservices
+#   and infrastructure components for comprehensive system monitoring.
+#
+# MONITORING TARGETS:
+#   - Video processing services (OCR, Detection, Captioning)
+#   - Infrastructure services (Kafka, Qdrant)
+#   - Custom application metrics and health indicators
+#
+# METRICS COLLECTED:
+#   - Service health and availability
+#   - Processing latency and throughput
+#   - Resource utilization (CPU, memory, GPU)
+#   - Kafka consumer lag and message rates
+#   - Vector database query performance
+#
+# INTEGRATION:
+#   - Used with Grafana for visualization dashboards
+#   - Alertmanager for automated alerting
+#   - Service discovery for dynamic target management
+#
+# ============================================================================
+
+# Global Prometheus configuration
+global:
+  # How frequently to scrape targets by default (can be overridden per job)
+  scrape_interval: 15s
+  
+  # How frequently to evaluate rules (alerting and recording rules)
+  evaluation_interval: 15s
+
+# Scrape configuration for all monitoring targets
+scrape_configs:
+  # Video RAG microservices monitoring
+  - job_name: 'video-rag-services'
+    static_configs:
+      - targets:
+        # OCR service - text extraction metrics
+        - 'localhost:8001'  # Processing time, accuracy, throughput
+        
+        # Detector service - object detection metrics  
+        - 'localhost:8002'  # Detection count, confidence, inference time
+        
+        # Captioner service - image captioning metrics
+        - 'localhost:8003'  # Caption quality, generation time, model performance
+    
+    # Custom metrics endpoint for FastAPI services
+    metrics_path: '/metrics'
+    
+    # More frequent scraping for real-time processing metrics
+    scrape_interval: 10s
+
+  # Kafka message broker monitoring
+  - job_name: 'kafka'
+    static_configs:
+      # Kafka broker metrics (JMX metrics via JMX exporter)
+      - targets: ['kafka:9092']
+    
+    # Standard Kafka metrics endpoint
+    metrics_path: '/metrics'
+    
+    # Metrics include: message rates, consumer lag, partition metrics
+
+  # Qdrant vector database monitoring  
+  - job_name: 'qdrant'
+    static_configs:
+      # Qdrant REST API metrics endpoint
+      - targets: ['qdrant:6333']
+    
+    # Built-in Qdrant metrics endpoint
+    metrics_path: '/metrics'
+    
+    # Metrics include: query latency, index size, memory usage

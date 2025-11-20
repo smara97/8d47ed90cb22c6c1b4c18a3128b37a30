@@ -1,0 +1,116 @@
+# ============================================================================
+# Kafka Topics Configuration - Video RAG System (Staging)
+# ============================================================================
+#
+# PURPOSE:
+#   Staging environment topic configuration with production-like settings
+#   for deployment validation and performance testing.
+#
+# STAGING CHARACTERISTICS:
+#   - Production-like partition counts for load testing
+#   - Moderate retention for testing cycles
+#   - Enhanced monitoring and metrics collection
+#   - Performance optimization for validation
+#
+# ============================================================================
+
+topics:
+  # Input topic for raw video frames
+  raw-frames:
+    partitions: 6
+    replication-factor: 1
+    config:
+      max.message.bytes: 10485760
+      compression.type: lz4
+      # 6 hours retention for staging testing
+      retention.ms: 21600000
+      segment.bytes: 536870912
+    description: "Input video frames for processing by vision services"
+
+  # OCR service results
+  ocr-results:
+    partitions: 4
+    replication-factor: 1
+    config:
+      max.message.bytes: 1048576
+      compression.type: gzip
+      # 12 hours retention for analysis
+      retention.ms: 43200000
+      segment.bytes: 268435456
+    description: "Text extraction results from OCR service"
+
+  # Object detection results
+  detection-results:
+    partitions: 4
+    replication-factor: 1
+    config:
+      max.message.bytes: 2097152
+      compression.type: gzip
+      retention.ms: 43200000
+      segment.bytes: 268435456
+    description: "Object detection results with bounding boxes and classifications"
+
+  # Image captioning results
+  caption-results:
+    partitions: 4
+    replication-factor: 1
+    config:
+      max.message.bytes: 524288
+      compression.type: gzip
+      retention.ms: 43200000
+      segment.bytes: 134217728
+    description: "Natural language captions generated from video frames"
+
+  # Aggregated frame metadata
+  aggregated-frame-metadata:
+    partitions: 3
+    replication-factor: 1
+    config:
+      max.message.bytes: 5242880
+      compression.type: gzip
+      # 24 hours retention for staging validation
+      retention.ms: 86400000
+      segment.bytes: 268435456
+    description: "Combined metadata from all vision processing services"
+
+  # Frame summaries from LLM
+  frame-summaries:
+    partitions: 2
+    replication-factor: 1
+    config:
+      max.message.bytes: 1048576
+      compression.type: gzip
+      # 48 hours retention for testing
+      retention.ms: 172800000
+      segment.bytes: 134217728
+    description: "LLM-generated summaries of frame content and context"
+
+  # Final video segments for RAG storage
+  video-segments:
+    partitions: 2
+    replication-factor: 1
+    config:
+      max.message.bytes: 10485760
+      compression.type: lz4
+      # 3 days retention for staging
+      retention.ms: 259200000
+      segment.bytes: 536870912
+    description: "Final processed video segments ready for vector storage"
+
+# Consumer group configurations
+consumer-groups:
+  ocr-service-group:
+    description: "OCR service consumer group for text extraction"
+    auto.offset.reset: latest
+    
+  detector-service-group:
+    description: "Object detection service consumer group"
+    auto.offset.reset: latest
+    
+  captioner-service-group:
+    description: "Image captioning service consumer group"
+    auto.offset.reset: latest
+    
+  aggregator-service-group:
+    description: "Frame aggregation service consumer group"
+    auto.offset.reset: earliest

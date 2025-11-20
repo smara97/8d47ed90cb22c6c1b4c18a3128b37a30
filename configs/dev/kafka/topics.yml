@@ -1,0 +1,125 @@
+# ============================================================================
+# Kafka Topics Configuration - Video RAG System
+# ============================================================================
+#
+# PURPOSE:
+#   Defines all Kafka topics used in the Video RAG pipeline with their
+#   configuration parameters for optimal performance and reliability.
+#
+# TOPIC ARCHITECTURE:
+#   raw-frames → [vision-services] → results → aggregation → storage
+#
+# PERFORMANCE CONSIDERATIONS:
+#   - Partition count optimized for parallel processing
+#   - Retention policies balanced for storage and processing needs
+#   - Compression enabled for large video frame data
+#   - Replication factor set for development (increase for production)
+#
+# ============================================================================
+
+topics:
+  # Input topic for raw video frames
+  raw-frames:
+    partitions: 3
+    replication-factor: 1
+    config:
+      # Large messages for base64 encoded video frames
+      max.message.bytes: 10485760
+      # LZ4 compression for video data efficiency
+      compression.type: lz4
+      # Shorter retention for development (1 hour)
+      retention.ms: 3600000
+      # Segment size for efficient storage
+      segment.bytes: 536870912
+    description: "Input video frames for processing by vision services"
+
+  # OCR service results
+  ocr-results:
+    partitions: 2
+    replication-factor: 1
+    config:
+      # Smaller messages for text extraction results
+      max.message.bytes: 1048576
+      compression.type: gzip
+      # Longer retention for analysis results
+      retention.ms: 7200000
+      segment.bytes: 268435456
+    description: "Text extraction results from OCR service"
+
+  # Object detection results
+  detection-results:
+    partitions: 2
+    replication-factor: 1
+    config:
+      # Medium-sized messages for detection data
+      max.message.bytes: 2097152
+      compression.type: gzip
+      retention.ms: 7200000
+      segment.bytes: 268435456
+    description: "Object detection results with bounding boxes and classifications"
+
+  # Image captioning results
+  caption-results:
+    partitions: 2
+    replication-factor: 1
+    config:
+      # Small messages for caption text
+      max.message.bytes: 524288
+      compression.type: gzip
+      retention.ms: 7200000
+      segment.bytes: 134217728
+    description: "Natural language captions generated from video frames"
+
+  # Aggregated frame metadata
+  aggregated-frame-metadata:
+    partitions: 2
+    replication-factor: 1
+    config:
+      # Combined results from all vision services
+      max.message.bytes: 5242880
+      compression.type: gzip
+      retention.ms: 14400000
+      segment.bytes: 268435456
+    description: "Combined metadata from all vision processing services"
+
+  # Frame summaries from LLM
+  frame-summaries:
+    partitions: 1
+    replication-factor: 1
+    config:
+      # Text summaries from language models
+      max.message.bytes: 1048576
+      compression.type: gzip
+      retention.ms: 86400000
+      segment.bytes: 134217728
+    description: "LLM-generated summaries of frame content and context"
+
+  # Final video segments for RAG storage
+  video-segments:
+    partitions: 1
+    replication-factor: 1
+    config:
+      # Processed video segments with embeddings
+      max.message.bytes: 10485760
+      compression.type: lz4
+      retention.ms: 604800000
+      segment.bytes: 536870912
+    description: "Final processed video segments ready for vector storage"
+
+# Consumer group configurations
+consumer-groups:
+  ocr-service-group:
+    description: "OCR service consumer group for text extraction"
+    auto.offset.reset: latest
+    
+  detector-service-group:
+    description: "Object detection service consumer group"
+    auto.offset.reset: latest
+    
+  captioner-service-group:
+    description: "Image captioning service consumer group"
+    auto.offset.reset: latest
+    
+  aggregator-service-group:
+    description: "Frame aggregation service consumer group"
+    auto.offset.reset: earliest

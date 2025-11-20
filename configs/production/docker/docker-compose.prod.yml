@@ -1,0 +1,173 @@
+# ============================================================================
+# Docker Compose Production Environment Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Production environment configuration for Video RAG system with enterprise
+#   security, performance optimization, and reliability features.
+#
+# PRODUCTION CHARACTERISTICS:
+#   - Maximum security hardening and access controls
+#   - Optimized resource allocation and scaling
+#   - Comprehensive monitoring and alerting
+#   - High availability and fault tolerance
+#   - Performance tuning for production workloads
+#
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # Production Kafka configuration
+  kafka:
+    environment:
+      # Production logging (minimal debug output)
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=WARN,kafka.producer=WARN,kafka.consumer=WARN"
+      
+      # Production retention and performance settings
+      KAFKA_LOG_RETENTION_HOURS: 168  # 7 days
+      KAFKA_LOG_SEGMENT_BYTES: 2147483648  # 2GB segments
+      
+      # Production JVM settings
+      KAFKA_HEAP_OPTS: "-Xmx4g -Xms2g"
+      KAFKA_JVM_PERFORMANCE_OPTS: "-XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions"
+      
+      # Security settings
+      KAFKA_SECURITY_PROTOCOL: "PLAINTEXT"  # Configure SSL/SASL for production
+      
+    # Production resource allocation
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '3.0'
+        reservations:
+          memory: 4G
+          cpus: '2.0'
+      
+      # Production restart policy
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # Production Zookeeper
+  zookeeper:
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx1g -Xms512m"
+    
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Production microservices configuration
+  ocr-service:
+    environment:
+      LOG_LEVEL: "WARN"
+      ENABLE_METRICS: "true"
+      # Production optimizations
+      OCR_BATCH_SIZE: 10
+      OCR_TIMEOUT: 30
+    
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 3G
+          cpus: '1.5'
+      
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+  detector-service:
+    environment:
+      LOG_LEVEL: "WARN"
+      ENABLE_METRICS: "true"
+      # Production model configuration
+      MODEL_SIZE: "large"
+      DETECTION_CONFIDENCE_THRESHOLD: 0.7
+    
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '2.0'
+        reservations:
+          memory: 6G
+          cpus: '1.5'
+      
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+  captioner-service:
+    environment:
+      LOG_LEVEL: "WARN"
+      ENABLE_METRICS: "true"
+      # Production caption settings
+      MAX_CAPTION_LENGTH: 100
+      CAPTION_TIMEOUT: 60
+    
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '2.0'
+        reservations:
+          memory: 4G
+          cpus: '1.5'
+      
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+  # Production monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/production/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=100GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD}"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+volumes:
+  grafana-data:

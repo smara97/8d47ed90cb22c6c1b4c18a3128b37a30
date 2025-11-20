@@ -1,0 +1,77 @@
+# ============================================================================
+# Performance Tuning Configuration - Video RAG Production
+# ============================================================================
+#
+# PURPOSE:
+#   Performance optimization settings for production deployment
+#   including resource allocation, caching, and processing tuning.
+#
+# ============================================================================
+
+# Kafka Performance Tuning
+kafka:
+  producer:
+    batch_size: 65536
+    linger_ms: 10
+    compression_type: lz4
+    acks: 1
+    retries: 3
+    buffer_memory: 67108864
+    
+  consumer:
+    fetch_min_bytes: 50000
+    fetch_max_wait_ms: 500
+    max_poll_records: 1000
+    session_timeout_ms: 6000
+    
+  broker:
+    num_network_threads: 8
+    num_io_threads: 16
+    socket_send_buffer_bytes: 102400
+    socket_receive_buffer_bytes: 102400
+    num_replica_fetchers: 4
+
+# Service Performance Settings
+services:
+  ocr:
+    batch_size: 10
+    worker_threads: 4
+    timeout: 30
+    cache_size: 1000
+    
+  detector:
+    batch_size: 8
+    worker_threads: 2
+    timeout: 45
+    model_cache: true
+    
+  captioner:
+    batch_size: 5
+    worker_threads: 2
+    timeout: 60
+    cache_size: 500
+    
+  aggregator:
+    cache_ttl: 300
+    max_cache_size: 10000
+    batch_timeout: 5
+
+# Resource Allocation
+resources:
+  cpu_limits:
+    ocr_service: "2.0"
+    detector_service: "2.0"
+    captioner_service: "2.0"
+    frame_aggregator: "0.5"
+    
+  memory_limits:
+    ocr_service: "4G"
+    detector_service: "8G"
+    captioner_service: "6G"
+    frame_aggregator: "512M"
+    
+  jvm_settings:
+    kafka:
+      heap_size: "4g"
+      gc_algorithm: "G1GC"
+      gc_pause_target: "20ms"

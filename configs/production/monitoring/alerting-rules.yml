@@ -1,0 +1,129 @@
+# ============================================================================
+# Prometheus Alerting Rules - Video RAG Production
+# ============================================================================
+#
+# PURPOSE:
+#   Production alerting rules for proactive monitoring and incident response
+#   in the Video RAG microservices system.
+#
+# ============================================================================
+
+groups:
+  - name: video-rag-infrastructure
+    rules:
+      - alert: KafkaDown
+        expr: up{job="kafka-cluster"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: kafka
+        annotations:
+          summary: "Kafka broker is down"
+          description: "Kafka broker has been down for more than 1 minute"
+      
+      - alert: QdrantDown
+        expr: up{job="infrastructure", instance=~".*qdrant.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: qdrant
+        annotations:
+          summary: "Qdrant vector database is down"
+          description: "Qdrant has been unreachable for more than 2 minutes"
+      
+      - alert: MinIODown
+        expr: up{job="infrastructure", instance=~".*minio.*"} == 0
+        for: 2m
+        labels:
+          severity: high
+          service: minio
+        annotations:
+          summary: "MinIO storage is down"
+          description: "MinIO object storage has been down for more than 2 minutes"
+
+  - name: video-rag-services
+    rules:
+      - alert: ServiceDown
+        expr: up{job="video-rag-services"} == 0
+        for: 3m
+        labels:
+          severity: high
+          service: "{{ $labels.instance }}"
+        annotations:
+          summary: "Video RAG service is down"
+          description: "Service {{ $labels.instance }} has been down for more than 3 minutes"
+      
+      - alert: HighProcessingLatency
+        expr: histogram_quantile(0.95, rate(processing_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+        annotations:
+          summary: "High processing latency detected"
+          description: "95th percentile processing time is above 30 seconds for {{ $labels.service }}"
+      
+      - alert: HighErrorRate
+        expr: rate(processing_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 10% for {{ $labels.service }}"
+
+  - name: video-rag-resources
+    rules:
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          container: "{{ $labels.name }}"
+        annotations:
+          summary: "High memory usage"
+          description: "Container {{ $labels.name }} is using more than 90% of allocated memory"
+      
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          container: "{{ $labels.name }}"
+        annotations:
+          summary: "High CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is above 80% for 10 minutes"
+      
+      - alert: DiskSpaceRunningLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          device: "{{ $labels.device }}"
+        annotations:
+          summary: "Disk space running low"
+          description: "Disk {{ $labels.device }} has less than 10% free space"
+
+  - name: video-rag-kafka
+    rules:
+      - alert: KafkaConsumerLag
+        expr: kafka_consumer_lag_sum > 1000
+        for: 5m
+        labels:
+          severity: warning
+          topic: "{{ $labels.topic }}"
+          group: "{{ $labels.group }}"
+        annotations:
+          summary: "High Kafka consumer lag"
+          description: "Consumer group {{ $labels.group }} has lag > 1000 messages on topic {{ $labels.topic }}"
+      
+      - alert: KafkaTopicPartitionOffline
+        expr: kafka_topic_partition_leader == -1
+        for: 1m
+        labels:
+          severity: critical
+          topic: "{{ $labels.topic }}"
+        annotations:
+          summary: "Kafka partition offline"
+          description: "Topic {{ $labels.topic }} has offline partitions"

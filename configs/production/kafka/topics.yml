@@ -1,0 +1,135 @@
+# ============================================================================
+# Kafka Topics Configuration - Video RAG System (Production)
+# ============================================================================
+#
+# PURPOSE:
+#   Production environment topic configuration optimized for high throughput,
+#   reliability, and enterprise-grade performance requirements.
+#
+# PRODUCTION CHARACTERISTICS:
+#   - High partition counts for maximum parallelism
+#   - Extended retention for business requirements
+#   - Optimized compression and storage settings
+#   - High availability and fault tolerance
+#
+# ============================================================================
+
+topics:
+  # Input topic for raw video frames
+  raw-frames:
+    partitions: 12
+    replication-factor: 3
+    config:
+      max.message.bytes: 10485760
+      compression.type: lz4
+      # 24 hours retention for production processing
+      retention.ms: 86400000
+      segment.bytes: 1073741824
+      # Production reliability settings
+      min.insync.replicas: 2
+      unclean.leader.election.enable: false
+    description: "Input video frames for processing by vision services"
+
+  # OCR service results
+  ocr-results:
+    partitions: 8
+    replication-factor: 3
+    config:
+      max.message.bytes: 1048576
+      compression.type: gzip
+      # 7 days retention for production analysis
+      retention.ms: 604800000
+      segment.bytes: 536870912
+      min.insync.replicas: 2
+      unclean.leader.election.enable: false
+    description: "Text extraction results from OCR service"
+
+  # Object detection results
+  detection-results:
+    partitions: 8
+    replication-factor: 3
+    config:
+      max.message.bytes: 2097152
+      compression.type: gzip
+      retention.ms: 604800000
+      segment.bytes: 536870912
+      min.insync.replicas: 2
+      unclean.leader.election.enable: false
+    description: "Object detection results with bounding boxes and classifications"
+
+  # Image captioning results
+  caption-results:
+    partitions: 8
+    replication-factor: 3
+    config:
+      max.message.bytes: 524288
+      compression.type: gzip
+      retention.ms: 604800000
+      segment.bytes: 268435456
+      min.insync.replicas: 2
+      unclean.leader.election.enable: false
+    description: "Natural language captions generated from video frames"
+
+  # Aggregated frame metadata
+  aggregated-frame-metadata:
+    partitions: 6
+    replication-factor: 3
+    config:
+      max.message.bytes: 5242880
+      compression.type: gzip
+      # 30 days retention for production analytics
+      retention.ms: 2592000000
+      segment.bytes: 536870912
+      min.insync.replicas: 2
+      unclean.leader.election.enable: false
+    description: "Combined metadata from all vision processing services"
+
+  # Frame summaries from LLM
+  frame-summaries:
+    partitions: 4
+    replication-factor: 3
+    config:
+      max.message.bytes: 1048576
+      compression.type: gzip
+      # 90 days retention for business intelligence
+      retention.ms: 7776000000
+      segment.bytes: 268435456
+      min.insync.replicas: 2
+      unclean.leader.election.enable: false
+    description: "LLM-generated summaries of frame content and context"
+
+  # Final video segments for RAG storage
+  video-segments:
+    partitions: 4
+    replication-factor: 3
+    config:
+      max.message.bytes: 10485760
+      compression.type: lz4
+      # 6 months retention for production RAG
+      retention.ms: 15552000000
+      segment.bytes: 1073741824
+      min.insync.replicas: 2
+      unclean.leader.election.enable: false
+    description: "Final processed video segments ready for vector storage"
+
+# Consumer group configurations
+consumer-groups:
+  ocr-service-group:
+    description: "OCR service consumer group for text extraction"
+    auto.offset.reset: latest
+    enable.auto.commit: false
+    
+  detector-service-group:
+    description: "Object detection service consumer group"
+    auto.offset.reset: latest
+    enable.auto.commit: false
+    
+  captioner-service-group:
+    description: "Image captioning service consumer group"
+    auto.offset.reset: latest
+    enable.auto.commit: false
+    
+  aggregator-service-group:
+    description: "Frame aggregation service consumer group"
+    auto.offset.reset: earliest
+    enable.auto.commit: false
