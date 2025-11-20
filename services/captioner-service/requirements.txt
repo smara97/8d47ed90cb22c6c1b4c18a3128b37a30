@@ -1,0 +1,25 @@
+# ============================================================================
+# Captioner Service Dependencies
+# ============================================================================
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# Kafka Integration
+kafka-python==2.0.2
+
+# Computer Vision & Image Processing
+opencv-python-headless==4.8.1.78
+numpy==1.24.3
+Pillow==10.1.0
+
+# Optional: Transformers (uncomment when ready for real captioning)
+# transformers==4.35.0
+# torch==2.1.0
+# torchvision==0.16.0
+
+# Utilities
+python-multipart==0.0.6
+requests==2.31.0
