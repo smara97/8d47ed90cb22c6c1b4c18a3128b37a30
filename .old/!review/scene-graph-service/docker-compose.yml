@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  scene-graph-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${SCENE_GRAPH_SERVICE_CONTAINER_NAME}
+    hostname: scene-graph-service
+    ports:
+      - "${SCENE_GRAPH_SERVICE_HOST_PORT}:${SCENE_GRAPH_SERVICE_INTERNAL_PORT}"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+      - KAFKA_INPUT_TOPIC=${KAFKA_TOPIC_DETECTION_RESULTS}
+      - KAFKA_OUTPUT_TOPIC=${KAFKA_TOPIC_SCENE_GRAPH_RESULTS}
+      - KAFKA_CONSUMER_GROUP=${SCENE_GRAPH_SERVICE_CONSUMER_GROUP}
+      - SERVICE_NAME=${SCENE_GRAPH_SERVICE_NAME}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - ${NETWORK_NAME}
+    restart: unless-stopped
+
+networks:
+  video-rag-network:
+    name: ${NETWORK_NAME}
+    external: true

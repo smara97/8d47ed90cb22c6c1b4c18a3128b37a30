@@ -1,0 +1,20 @@
+# ============================================================================
+# Narrative Summarizer Service Dependencies
+# ============================================================================
+
+# Core framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Kafka
+kafka-python==2.0.2
+aiokafka==0.10.0
+
+# LLM integration
+langchain-openai==0.0.2
+langchain-core==0.1.1
+
+# Utilities
+requests==2.31.0
