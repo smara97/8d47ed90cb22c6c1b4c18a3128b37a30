@@ -1,0 +1,122 @@
+# ============================================================================
+# Kafka UI - Web-based Kafka Management Dashboard
+# ============================================================================
+#
+# PURPOSE:
+#   Provides a comprehensive web interface for monitoring and managing
+#   Kafka clusters, topics, messages, and consumer groups. Essential for
+#   debugging and observing the Video RAG message flow.
+#
+# MONITORING CAPABILITIES:
+#   - Real-time topic and partition metrics
+#   - Message browsing and content inspection
+#   - Consumer group lag monitoring
+#   - Broker health and configuration viewing
+#   - Topic creation and configuration management
+#
+# VIDEO RAG SYSTEM USAGE:
+#   - Monitor frame processing throughput across topics
+#   - Debug message flow between microservices
+#   - Inspect frame metadata and vision results
+#   - Track consumer lag for performance optimization
+#   - Visualize topic partition distribution
+#
+# KEY FEATURES:
+#   - Topic browser with message content preview
+#   - Consumer group monitoring with lag metrics
+#   - Schema registry integration (if enabled)
+#   - Cluster configuration viewer
+#   - Message production interface for testing
+#
+# ACCESS:
+#   Web Interface: http://localhost:8080
+#   No authentication required (development setup)
+#
+# PERFORMANCE IMPACT:
+#   - Read-only operations have minimal impact
+#   - Message browsing may increase broker load
+#   - Recommended for development and monitoring only
+#
+# ============================================================================
+
+services:
+  kafka-ui:
+    # Provectus Kafka UI - popular open-source Kafka management tool
+    image: ${KAFKA_UI_IMAGE}
+    container_name: ${KAFKA_UI_CONTAINER_NAME}
+    hostname: kafka-ui
+    
+    # OrbStack will automatically create: kafka-ui.video-rag.orb.local
+
+    # Dependency - wait for Kafka broker to be healthy
+    depends_on:
+      kafka:
+        condition: service_healthy # Ensures Kafka is ready before UI starts
+
+    # Port mapping for web interface access
+    ports:
+      # Map host port to container's internal web server port
+      - "${KAFKA_UI_HOST_PORT}:8080" # 8080:8080
+
+    # Kafka UI configuration via environment variables
+    environment:
+      # Cluster configuration - can monitor multiple clusters
+      # Using index-based naming for multiple cluster support
+
+      # Display name for the Kafka cluster in UI
+      KAFKA_CLUSTERS_0_NAME: ${KAFKA_UI_CLUSTER_NAME} # "video-rag-local"
+
+      # Kafka broker connection string
+      # Uses internal Docker network address
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:${KAFKA_LISTENER_PORT_INTERNAL} # kafka:9092
+
+      # Zookeeper connection for additional cluster metadata
+      # Enables viewing of consumer group information
+      KAFKA_CLUSTERS_0_ZOOKEEPER: ${KAFKA_ZOOKEEPER_CONNECT} # zookeeper:2181
+
+      # Enable dynamic configuration updates through UI
+      # Allows topic and broker configuration changes
+      DYNAMIC_CONFIG_ENABLED: "true"
+
+    # Production resource management
+    deploy:
+      resources:
+        limits:
+          memory: 1G # Maximum memory for web interface
+          cpus: '0.5' # Maximum CPU for UI operations
+        reservations:
+          memory: 512M # Guaranteed memory for web server
+          cpus: '0.25' # Guaranteed CPU for UI responsiveness
+
+    # Enterprise security configuration
+    security_opt:
+      - no-new-privileges:true
+    
+    # Production logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=kafka-ui,environment=production,component=monitoring"
+
+    # Network configuration
+    networks:
+      - ${NETWORK_NAME}
+
+    # Production restart policy
+    restart: unless-stopped
+
+    # Optional health check for monitoring UI availability
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+# Network reference - created by infrastructure
+networks:
+  video-rag-network:
+    name: ${NETWORK_NAME}
+    external: true # Network managed by main infrastructure

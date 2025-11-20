@@ -1,0 +1,140 @@
+# ============================================================================
+# MinIO - S3-Compatible Object Storage
+# ============================================================================
+#
+# PURPOSE:
+#   Provides high-performance, S3-compatible object storage for the Video RAG
+#   system. Stores large binary assets that don't belong in Kafka messages
+#   or Qdrant vectors, enabling efficient file management and retrieval.
+#
+# ROLE IN VIDEO RAG SYSTEM:
+#   - Model Storage: ML model weights (YOLO, BLIP, CLIP, etc.)
+#   - Video Assets: Original video files and processed segments
+#   - Intermediate Files: Temporary processing artifacts
+#   - Backup Storage: Exported Qdrant collections and configurations
+#   - Static Assets: Documentation, schemas, and reference data
+#
+# STORAGE BUCKETS (Auto-created by services):
+#   - models/          → ML model weights and configurations
+#   - videos/          → Input video files
+#   - segments/        → Processed video segments
+#   - exports/         → Data exports and backups
+#   - temp/            → Temporary processing files
+#
+# S3 API COMPATIBILITY:
+#   - Full AWS S3 API compatibility
+#   - Works with boto3, AWS CLI, and S3 SDKs
+#   - Supports multipart uploads for large files
+#   - Object versioning and lifecycle policies
+#
+# PERFORMANCE CHARACTERISTICS:
+#   - High throughput for large file operations
+#   - Concurrent read/write operations
+#   - Erasure coding for data protection
+#   - Built-in compression and deduplication
+#
+# ACCESS METHODS:
+#   - S3 API: http://localhost:9000 (programmatic access)
+#   - Web Console: http://localhost:9001 (browser interface)
+#   - CLI: mc (MinIO Client) for command-line operations
+#
+# SECURITY:
+#   - Root credentials for admin access
+#   - IAM policies for service-specific access
+#   - Bucket policies for fine-grained permissions
+#   - TLS encryption for data in transit
+#
+# ============================================================================
+
+services:
+  minio:
+    # Official MinIO server image - latest stable release
+    image: ${MINIO_IMAGE}
+    container_name: ${MINIO_CONTAINER_NAME}
+    hostname: minio # Fixed hostname for consistent service discovery
+    
+    # OrbStack will automatically create: minio.video-rag.orb.local
+
+    # Dual port configuration for API and Console
+    ports:
+      # S3 API endpoint - used by applications and SDKs
+      - "${MINIO_HOST_API_PORT}:${MINIO_API_PORT}" # 9000:9000
+
+      # Web Console - browser-based management interface
+      - "${MINIO_HOST_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}" # 9001:9001
+
+    # MinIO server configuration
+    environment:
+      # Root administrator credentials
+      # Used for initial setup and admin operations
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER} # minioadmin (default)
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD} # minioadmin (change in production)
+
+    # Persistent storage for object data
+    volumes:
+      # Data directory - contains all stored objects and metadata
+      - ${MINIO_VOLUME_DATA}:/data
+
+    # Production resource management
+    deploy:
+      resources:
+        limits:
+          memory: 2G # Maximum memory for object storage operations
+          cpus: '1.0' # Maximum CPU for I/O operations
+        reservations:
+          memory: 1G # Guaranteed memory for storage operations
+          cpus: '0.5' # Guaranteed CPU for consistent I/O
+
+    # Enterprise security configuration
+    security_opt:
+      - no-new-privileges:true
+    
+    # Production logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=minio,environment=production,component=object-storage"
+
+    # MinIO server startup command
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
+
+    # Network configuration
+    networks:
+      - ${NETWORK_NAME}
+
+    # Production restart policy
+    restart: unless-stopped
+
+    # Health check configuration
+    healthcheck:
+      # Test MinIO liveness endpoint
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:${MINIO_API_PORT}/minio/health/live",
+        ]
+
+      # Check every 30 seconds
+      interval: 30s
+
+      # Wait up to 10 seconds for response
+      timeout: 10s
+
+      # Retry 3 times before marking unhealthy
+      retries: 3
+
+# Named volume for MinIO data persistence
+volumes:
+  video-rag-minio-data:
+    name: ${MINIO_VOLUME_DATA}
+    external: true
+
+# Network reference - managed by infrastructure
+networks:
+  video-rag-network:
+    name: ${NETWORK_NAME}
+    external: true # Network created by main infrastructure
