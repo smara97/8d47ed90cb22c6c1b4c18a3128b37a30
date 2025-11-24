@@ -1,0 +1,44 @@
+# ============================================================================
+# test service Service - Python Dependencies
+# ============================================================================
+#
+# PURPOSE:
+#   Python package dependencies for the test-service microservice in the
+#   Video RAG system for processing video frames and generating results.
+#
+# DEPENDENCY CATEGORIES:
+#   - Web Framework: FastAPI for REST API and health endpoints
+#   - ASGI Server: Uvicorn for high-performance async serving
+#   - Message Queue: Kafka client for event streaming integration
+#   - Data Processing: Libraries specific to test-service functionality
+#   - Monitoring: Logging and metrics collection dependencies
+#
+# SECURITY CONSIDERATIONS:
+#   - All versions pinned to prevent supply chain attacks
+#   - Regular security updates required for production deployment
+#   - Vulnerability scanning recommended before deployment
+#
+# PERFORMANCE NOTES:
+#   - Uvicorn with standard extras includes optimized HTTP parsing
+#   - Kafka-python provides efficient message serialization
+#   - FastAPI offers automatic API documentation and validation
+#
+# ============================================================================
+
+# Web framework for REST API endpoints and service health monitoring
+fastapi==0.104.1
+
+# High-performance ASGI server with WebSocket and HTTP/2 support
+uvicorn[standard]==0.24.0
+
+# Apache Kafka client for reliable message streaming and event processing
+kafka-python==2.0.2
+
+# Data validation and serialization library with type hints support
+pydantic==2.5.0
+
+# HTTP client library for external API calls and health checks
+requests==2.31.0
+
+# # test-service specific processing libraries
+# Add service-specific dependencies here based on processing requirements

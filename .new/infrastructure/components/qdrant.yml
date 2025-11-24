@@ -1,0 +1,139 @@
+# ============================================================================
+# Qdrant - High-Performance Vector Database
+# ============================================================================
+#
+# PURPOSE:
+#   Specialized vector database optimized for similarity search and retrieval.
+#   Serves as the final storage layer in the Video RAG pipeline, enabling
+#   semantic search over processed video segments using vector embeddings.
+#
+# ROLE IN VIDEO RAG SYSTEM:
+#   - Stores video segment embeddings from CLIP/other models
+#   - Enables semantic similarity search for RAG queries
+#   - Maintains metadata associations (timestamps, captions, objects)
+#   - Supports hybrid search (vector + metadata filtering)
+#   - Provides real-time similarity scoring and ranking
+#
+# VECTOR COLLECTIONS:
+#   - video_segments    → Main collection for processed video segments
+#   - frame_embeddings  → Individual frame-level embeddings
+#   - text_embeddings   → OCR and caption text embeddings
+#   - object_embeddings → Detected object feature vectors
+#
+# EMBEDDING DIMENSIONS:
+#   - CLIP embeddings: 512 dimensions (visual + text)
+#   - Custom embeddings: Configurable based on model choice
+#   - Metadata fields: JSON payload with structured data
+#
+# SEARCH CAPABILITIES:
+#   - Cosine similarity search (primary method)
+#   - Euclidean distance search
+#   - Dot product similarity
+#   - Filtered search with metadata conditions
+#   - Batch search for multiple queries
+#
+# PERFORMANCE CHARACTERISTICS:
+#   - HNSW index for fast approximate nearest neighbor search
+#   - Sub-millisecond query response times
+#   - Horizontal scaling support
+#   - Memory-mapped storage for large collections
+#   - Concurrent read/write operations
+#
+# API ACCESS:
+#   - REST API: http://localhost:6333 (HTTP/JSON)
+#   - gRPC API: localhost:6334 (high-performance binary)
+#   - Web Dashboard: http://localhost:6333/dashboard
+#   - Python SDK: qdrant-client library
+#
+# DATA PERSISTENCE:
+#   - WAL (Write-Ahead Log) for durability
+#   - Automatic snapshots and backups
+#   - Collection-level configuration
+#   - Point-in-time recovery support
+#
+# ============================================================================
+
+services:
+  qdrant:
+    # Official Qdrant vector database image
+    image: ${QDRANT_IMAGE}
+    container_name: ${QDRANT_CONTAINER_NAME}
+    hostname: qdrant # Fixed hostname for service discovery
+    
+    # OrbStack will automatically create: qdrant.video-rag.orb.local
+
+    # Dual protocol support - REST and gRPC
+    ports:
+      # REST API endpoint - HTTP/JSON interface
+      # Used by most clients and web dashboard
+      - "${QDRANT_HOST_REST_PORT}:${QDRANT_REST_PORT}" # 6333:6333
+
+      # gRPC API endpoint - high-performance binary protocol
+      # Used for high-throughput applications
+      - "${QDRANT_HOST_GRPC_PORT}:${QDRANT_GRPC_PORT}" # 6334:6334
+
+    # Persistent storage for vector data and indexes
+    volumes:
+      # Qdrant storage directory - contains collections, indexes, and WAL
+      - ${QDRANT_VOLUME_DATA}:/qdrant/storage
+
+    # Production resource management
+    deploy:
+      resources:
+        limits:
+          memory: 4G # Maximum memory for vector operations and indexes
+          cpus: '2.0' # Maximum CPU for similarity search
+        reservations:
+          memory: 2G # Guaranteed memory for vector storage
+          cpus: '1.0' # Guaranteed CPU for search operations
+
+    # Enterprise security configuration
+    security_opt:
+      - no-new-privileges:true
+    
+    # Production logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=qdrant,environment=production,component=vector-database"
+
+    # Network configuration
+    networks:
+      - ${NETWORK_NAME}
+
+    # Production restart policy
+    restart: unless-stopped
+
+    # Health check configuration
+    healthcheck:
+      # Test Qdrant port connectivity using netcat
+      test: ["CMD", "nc", "-z", "localhost", "${QDRANT_REST_PORT}"]
+
+      # Check every 30 seconds
+      interval: 30s
+
+      # Wait up to 10 seconds for response
+      timeout: 10s
+
+      # Retry 3 times before marking unhealthy
+      retries: 3
+
+    # Note: No explicit environment configuration needed
+    # Qdrant uses sensible defaults and file-based configuration
+    # Advanced settings can be provided via config file volume mount
+
+# Named volume for Qdrant data persistence
+volumes:
+  video-rag-qdrant-data:
+    name: ${QDRANT_VOLUME_DATA}
+    external: true
+
+
+# Network configuration
+networks:
+  video-rag-network:
+    driver: bridge
+    name: video-rag-network
+    external: true

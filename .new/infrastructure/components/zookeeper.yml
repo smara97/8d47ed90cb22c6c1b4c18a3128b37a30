@@ -1,0 +1,148 @@
+# ============================================================================
+# Apache Zookeeper - Enterprise Kafka Coordination Service
+# ============================================================================
+#
+# PURPOSE:
+#   Production-grade centralized coordination service for Apache Kafka cluster.
+#   Manages broker metadata, topic configurations, and leader election with
+#   enterprise security, monitoring, and resource management capabilities.
+#
+# ENTERPRISE FEATURES:
+#   - Resource limits and reservations for predictable performance
+#   - Security hardening with non-root execution and privilege restrictions
+#   - Comprehensive logging with rotation and size limits
+#   - Health monitoring with optimized check intervals
+#   - Data persistence with external volume management
+#
+# PRODUCTION CHARACTERISTICS:
+#   - Memory: 512MB reserved, 1GB limit (tuned for coordination workload)
+#   - CPU: 0.5 cores reserved, 1.0 core limit (sufficient for metadata ops)
+#   - Security: Non-privileged container execution
+#   - Logging: JSON structured logs with 10MB rotation
+#   - Monitoring: TCP health checks every 10 seconds
+#
+# ROLE IN VIDEO RAG SYSTEM:
+#   - Maintains Kafka cluster state and configuration
+#   - Coordinates partition leadership across Kafka brokers
+#   - Stores topic metadata and consumer group offsets
+#   - Enables fault-tolerant message streaming between microservices
+#
+# SECURITY CONSIDERATIONS:
+#   - Runs as non-root user for container security
+#   - No new privileges allowed during runtime
+#   - Network isolation via dedicated bridge network
+#   - Data encryption at rest via volume encryption (external)
+#
+# MONITORING & OBSERVABILITY:
+#   - Health endpoint: TCP connection test on port 2181
+#   - Log aggregation: JSON format for centralized logging
+#   - Metrics: JMX metrics available for monitoring systems
+#   - Alerting: Health check failures trigger container restart
+#
+# ============================================================================
+
+services:
+  zookeeper:
+    # Official Confluent Zookeeper image with Kafka optimizations
+    image: ${ZOOKEEPER_IMAGE}
+    container_name: ${ZOOKEEPER_CONTAINER_NAME}
+    hostname: zookeeper # Fixed hostname for consistent Kafka connection
+    
+    # OrbStack automatic domain: zookeeper.video-rag.orb.local
+
+    # Port mapping: host:container
+    # Standard Zookeeper client port for Kafka coordination
+    ports:
+      - "${ZOOKEEPER_HOST_PORT}:${ZOOKEEPER_CLIENT_PORT}" # 2181:2181
+
+    # Production environment configuration with validation
+    environment:
+      # Required: Port for client connections (Kafka brokers connect here)
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT:?Zookeeper client port required}
+
+      # Required: Basic time unit in milliseconds for heartbeats and timeouts
+      # Lower values = faster failure detection, higher network overhead
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME:?Zookeeper tick time required}
+
+      # Required: Number of ticks that followers can lag behind leader
+      # Higher values = more tolerance for network delays
+      ZOOKEEPER_SYNC_LIMIT: ${ZOOKEEPER_SYNC_LIMIT:?Zookeeper sync limit required}
+
+      # JVM heap size optimization for coordination workload
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
+
+      # JVM GC tuning for low-latency coordination
+      KAFKA_JVM_PERFORMANCE_OPTS: "-XX:+UseG1GC -XX:MaxGCPauseMillis=20"
+
+    # Persistent storage for Zookeeper state
+    volumes:
+      # Transaction logs and snapshots - critical for data consistency
+      - ${ZOOKEEPER_VOLUME_DATA}:/var/lib/zookeeper/data
+
+      # Write-ahead logs for transaction durability
+      - ${ZOOKEEPER_VOLUME_LOGS}:/var/lib/zookeeper/log
+
+    # Production resource management
+    deploy:
+      resources:
+        # Resource limits to prevent system overload
+        limits:
+          memory: 1G # Maximum memory allocation
+          cpus: '1.0' # Maximum CPU cores
+        # Resource reservations for guaranteed performance
+        reservations:
+          memory: 512M # Guaranteed memory allocation
+          cpus: '0.5' # Guaranteed CPU cores
+
+    # Enterprise security configuration
+    security_opt:
+      # Prevent privilege escalation attacks
+      - no-new-privileges:true
+    
+    # Production logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        # Log rotation to prevent disk space issues
+        max-size: "10m" # Maximum log file size
+        max-file: "3" # Number of rotated log files to keep
+        # Structured logging for centralized log aggregation
+        labels: "service=zookeeper,environment=production"
+
+    # Network configuration
+    networks:
+      - ${NETWORK_NAME} # video-rag-network bridge
+
+    # Production restart policy
+    restart: unless-stopped
+
+    # Optimized health check configuration
+    healthcheck:
+      # Test TCP connectivity to Zookeeper client port
+      test: ["CMD", "nc", "-z", "localhost", "${ZOOKEEPER_CLIENT_PORT}"]
+
+      # Production-tuned check intervals
+      interval: 10s # Check every 10 seconds
+      timeout: 3s # Reduced timeout for faster failure detection
+      retries: 3 # Fewer retries for quicker failover
+      start_period: 30s # Allow time for service initialization
+
+# Named volumes for data persistence across container restarts
+volumes:
+  # Zookeeper data directory - contains snapshots and transaction logs
+  video-rag-zookeeper-data:
+    name: ${ZOOKEEPER_VOLUME_DATA}
+    external: true
+
+  # Zookeeper log directory - write-ahead logs for durability
+  video-rag-zookeeper-logs:
+    name: ${ZOOKEEPER_VOLUME_LOGS}
+    external: true
+
+# Network configuration
+networks:
+  video-rag-network:
+    driver: bridge
+    name: video-rag-network
+    external: true
+

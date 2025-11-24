@@ -1,0 +1,96 @@
+# ============================================================================
+# test service Service - Docker Compose Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Docker Compose configuration for the test-service service that
+#   processes video frames using test method for test-service analysis in the Video RAG processing pipeline.
+#
+# SERVICE ROLE:
+#   Consumes frames from raw-frames, processes them using test, and publishes results to test-service-results
+#
+# INTEGRATION POINTS:
+#   Input Topic:   raw-frames
+#   Output Topic:  test-service-results
+#   Dependencies:  Kafka message broker
+#   Monitoring:    Health endpoint on port 8005
+#
+# RESOURCE ALLOCATION:
+#   - Optimized for test processing with 5 batch size
+#   - Optimized for test processing workloads
+#   - Suitable for horizontal scaling in production
+#
+# SECURITY CONFIGURATION:
+#   - Runs with no-new-privileges security option
+#   - Non-root user execution within container
+#   - Network isolation via dedicated bridge network
+#
+# ============================================================================
+
+services:
+  test-service:
+    # Build configuration using local Dockerfile
+    build:
+      context: .              # Build context is current directory
+      dockerfile: Dockerfile   # Use multi-stage Dockerfile for optimization
+    
+    # Container identification and networking
+    container_name: test-service  # Fixed name for service discovery
+    hostname: test-service        # Internal hostname for network communication
+    
+    # Port mapping for external access to health/metrics endpoints
+    ports:
+      - "8005:8000"  # Maps host port 8005 to container port 8000
+    
+    # Environment variables for service configuration
+    environment:
+      # Kafka connection configuration
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092  # Kafka broker connection string
+      
+      # Topic configuration for message processing
+      - KAFKA_INPUT_TOPIC=raw-frames   # Input topic for consuming frames
+      - KAFKA_OUTPUT_TOPIC=test-service-results # Output topic for publishing results
+      
+      # Consumer group for Kafka message consumption
+      - KAFKA_CONSUMER_GROUP=test-service-group
+      
+      # Service identification and configuration
+      - SERVICE_NAME=test-service       # Service identifier
+      
+      # Logging configuration for operational visibility
+      - LOG_LEVEL=INFO  # Standard logging level for production
+      
+      # # test-service specific environment variables
+    
+
+    
+    # Network configuration for service communication
+    networks:
+      - video-rag-network  # Connects to shared network for inter-service communication
+    
+    # Restart policy for high availability
+    restart: unless-stopped  # Automatically restarts unless explicitly stopped
+    
+    # Security configuration for container hardening
+    security_opt:
+      - no-new-privileges:true  # Prevents privilege escalation within container
+    
+    # Resource allocation and limits for performance management
+    deploy:
+      resources:
+        # Maximum resource limits to prevent resource exhaustion
+        limits:
+          memory: 2G    # Maximum memory allocation
+          cpus: '1.0'       # Maximum CPU allocation
+        
+        # Guaranteed resource reservations for consistent performance
+        reservations:
+          memory: 1G  # Guaranteed memory allocation
+          cpus: '0.5'     # Guaranteed CPU allocation
+
+# Network configuration
+networks:
+  video-rag-network:
+    driver: bridge
+    name: video-rag-network
+    external: true

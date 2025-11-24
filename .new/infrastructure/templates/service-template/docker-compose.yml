@@ -1,0 +1,94 @@
+# ============================================================================
+# {{SERVICE_NAME_TITLE}} Service - Docker Compose Configuration
+# ============================================================================
+#
+# PURPOSE:
+#   Docker Compose configuration for the {{SERVICE_NAME}} service that
+#   {{SERVICE_DESCRIPTION_LOWER}} in the Video RAG processing pipeline.
+#
+# SERVICE ROLE:
+#   {{SERVICE_ROLE_DESCRIPTION}}
+#
+# INTEGRATION POINTS:
+#   Input Topic:   {{INPUT_TOPIC}}
+#   Output Topic:  {{OUTPUT_TOPIC}}
+#   Dependencies:  Kafka message broker
+#   Monitoring:    Health endpoint on port {{HOST_PORT}}
+#
+# RESOURCE ALLOCATION:
+#   - {{RESOURCE_DESCRIPTION}}
+#   - Optimized for {{OPTIMIZATION_TARGET}}
+#   - Suitable for horizontal scaling in production
+#
+# SECURITY CONFIGURATION:
+#   - Runs with no-new-privileges security option
+#   - Non-root user execution within container
+#   - Network isolation via dedicated bridge network
+#
+# ============================================================================
+
+services:
+  {{SERVICE_NAME}}:
+    # Build configuration using local Dockerfile
+    build:
+      context: .              # Build context is current directory
+      dockerfile: Dockerfile   # Use multi-stage Dockerfile for optimization
+    
+    # Container identification and networking
+    container_name: {{SERVICE_NAME}}  # Fixed name for service discovery
+    hostname: {{SERVICE_NAME}}        # Internal hostname for network communication
+    
+    # Port mapping for external access to health/metrics endpoints
+    ports:
+      - "{{HOST_PORT}}:8000"  # Maps host port {{HOST_PORT}} to container port 8000
+    
+    # Environment variables for service configuration
+    environment:
+      # Kafka connection configuration
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092  # Kafka broker connection string
+      
+      # Topic configuration for message processing
+      - KAFKA_INPUT_TOPIC={{INPUT_TOPIC}}   # Input topic for consuming frames
+      - KAFKA_OUTPUT_TOPIC={{OUTPUT_TOPIC}} # Output topic for publishing results
+      
+      # Consumer group for Kafka message consumption
+      - KAFKA_CONSUMER_GROUP={{SERVICE_NAME}}-group
+      
+      # Service identification and configuration
+      - SERVICE_NAME={{SERVICE_NAME}}       # Service identifier
+      
+      # Logging configuration for operational visibility
+      - LOG_LEVEL=INFO  # Standard logging level for production
+      
+      # {{SERVICE_SPECIFIC_ENV_VARS}}
+    
+    # Network configuration for service communication
+    networks:
+      - video-rag-network  # Connects to shared network for inter-service communication
+    
+    # Restart policy for high availability
+    restart: unless-stopped  # Automatically restarts unless explicitly stopped
+    
+    # Security configuration for container hardening
+    security_opt:
+      - no-new-privileges:true  # Prevents privilege escalation within container
+    
+    # Resource allocation and limits for performance management
+    deploy:
+      resources:
+        # Maximum resource limits to prevent resource exhaustion
+        limits:
+          memory: {{MEMORY_LIMIT}}    # Maximum memory allocation
+          cpus: '{{CPU_LIMIT}}'       # Maximum CPU allocation
+        
+        # Guaranteed resource reservations for consistent performance
+        reservations:
+          memory: {{MEMORY_RESERVATION}}  # Guaranteed memory allocation
+          cpus: '{{CPU_RESERVATION}}'     # Guaranteed CPU allocation
+
+# Network configuration
+networks:
+  video-rag-network:
+    driver: bridge
+    name: video-rag-network
+    external: true
