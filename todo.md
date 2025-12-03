@@ -1,0 +1,21 @@
+# Project TODO
+
+- [x] Database schema for camera streams
+- [x] Backend API for adding streams (RTSP URL or video upload)
+- [x] Backend API for listing all streams
+- [ ] Backend API for sending stream data to app.py (placeholder added, needs app.py endpoint)
+- [x] Add stream page UI with form (camera_id, camera_description, RTSP URL or video upload)
+- [x] Stream viewing page UI to display all cameras
+- [x] Main information page UI
+- [ ] Integration with app.py for stream data handling
+- [x] Testing and validation
+- [x] Fix video upload error
+- [x] Update Camera Streams page to display like Hikvision
+- [x] Remove fixed/mock data from the system
+- [x] Implement app.py integration with print functionality
+- [x] Export system as zip file
+- [x] Update Camera Streams to auto-play all videos continuously in grid view
+- [x] Remove authentication requirement for local development
+- [x] Fix Windows compatibility for npm scripts
+- [x] Fix video upload to work without authentication
+- [x] Fix video upload not appearing in streams list

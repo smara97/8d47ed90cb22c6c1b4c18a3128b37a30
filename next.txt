@@ -1,0 +1,32 @@
+NEED TEST
+    Build microservice [streaming] take this data after converted to json
+    class CameraStreamData(BaseModel):
+        """Data model for camera stream information"""
+        camera_id: str
+        camera_description: Optional[str] = None
+        stream_type: str  # "rtsp" or "video"
+        rtsp_url: Optional[str] = None
+        video_url: Optional[str] = None
+
+        working:
+            Runnning video capturing to get real frames from RTSP. then push this frame with metadata to ingestion service Core\services\ingestion
+
+    StreamManager:
+        Orchestrate the streams threads
+        Monitor streaming threads
+
+Segmeneter:
+frame, frame , ...... --> segmenet
+    That gather the analyzed frames and make simple segmenet with (number) of seconds or number of frames.
+
+Summarizer Segmenet:
+    That generate summary from Segmenet.
+
+Store Segmenet:
+    That store the segmenet with text to database
+
+Indexer:
+    Get index of segmenet after vectorized the text and push it with path in Qudrant/Malivis
+
+VideoRAG [DONE]
+

@@ -1,3 +1,0 @@
-# 8d47ed90cb22c6c1b4c18a3128b37a30
-
-Video RAG

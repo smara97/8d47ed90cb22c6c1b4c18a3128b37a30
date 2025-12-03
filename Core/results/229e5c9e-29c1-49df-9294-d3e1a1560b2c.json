@@ -1,0 +1,46 @@
+{
+    "frame_id": "229e5c9e-29c1-49df-9294-d3e1a1560b2c",
+    "camera_id": 0,
+    "timestamp": "2025-12-03T00:01:36",
+    "extra": {},
+    "detections": [
+        {
+            "detections": [
+                {
+                    "class_id": 56,
+                    "class_name": "chair",
+                    "confidence": 0.8833765387535095,
+                    "bbox": [
+                        0.6645264029502869,
+                        51.328529357910156,
+                        154.2915802001953,
+                        449.39501953125
+                    ],
+                    "width": 153.62705993652344,
+                    "height": 398.0664978027344
+                }
+            ],
+            "relations": {
+                "objects": [
+                    {
+                        "object_idx": 0,
+                        "class_id": 56,
+                        "class_name": "chair",
+                        "bbox": [
+                            0.6645264029502869,
+                            51.328529357910156,
+                            154.2915802001953,
+                            449.39501953125
+                        ],
+                        "confidence": 0.8833765387535095
+                    }
+                ],
+                "relations": []
+            }
+        }
+    ],
+    "captions": [
+        "there is a cat that is standing on the floor in the room"
+    ],
+    "ocr": "Making mycatdo; an; interpretive dance; for some treats; "
+}
